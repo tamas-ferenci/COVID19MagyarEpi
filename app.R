@@ -18,7 +18,49 @@ lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 100) {
 ui <- fluidPage(
   theme = "owntheme.css",
   
-  titlePanel("COVID-19 magyar epidemiológia"),
+  tags$head(
+    tags$script(async = NA, src = "https://www.googletagmanager.com/gtag/js?id=UA-19799395-3"),
+    tags$script(HTML("
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+                       
+    gtag('config', 'UA-19799395-3');
+    ")),
+    tags$meta(name = "description", content = paste0("A magyarországi koronavírus járvány valós idejű epidemiológiáját ",
+                                                     "bemutató, annak elemzését lehetővé tevő alkalmazás alkalmazás. ",
+                                                     "Írta: Ferenci Tamás.")),
+    tags$meta(property = "og:title", content = "A magyarországi koronavírus járvány valós idejű epidemiológiája" ),
+    tags$meta(property = "og:type", content = "website"),
+    tags$meta(property = "og:locale", content = "hu_HU"),
+    tags$meta(property = "og:url", content = "https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/"),
+    tags$meta(property = "og:image", content = "https://research.physcon.uni-obuda.hu/COVID19MagyarEpi_Pelda.png"),
+    tags$meta(property = "og:description", content = paste0("A magyarországi koronavírus járvány valós idejű epidemiológiáját ",
+                                                            "bemutató, annak elemzését lehetővé tevő alkalmazás alkalmazás. ",
+                                                            "Írta: Ferenci Tamás.")),
+    tags$meta(name = "DC.Title", content = "A magyarországi koronavírus járvány valós idejű epidemiológiája"),
+    tags$meta(name = "DC.Creator", content = "Ferenci Tamás"),
+    tags$meta(name = "DC.Subject", content = "epidemiológia"),
+    tags$meta(name = "DC.Description", content = paste0("A magyarországi koronavírus járvány valós idejű epidemiológiáját ",
+                                                        "bemutató, annak elemzését lehetővé tevő alkalmazás alkalmazás. ",
+                                                        "Írta: Ferenci Tamás.")),
+    tags$meta(name = "DC.Publisher", content = "https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/"),
+    tags$meta(name = "DC.Contributor", content = "Ferenci Tamás"),
+    tags$meta(name = "DC.Language", content = "hu_HU")
+  ),
+  
+  tags$div(id = "fb-root"),
+  tags$script(async = NA, defer = NA, crossorigin = "anonymous",
+              src = "https://connect.facebook.net/hu_HU/sdk.js#xfbml=1&version=v6.0"),
+  
+  tags$style(".shiny-file-input-progress {display: none}"),
+  
+  titlePanel("A magyarországi koronavírus járvány valós idejű epidemiológiája"),
+  
+  p("A program teljes forráskódja", a("itt", href = "https://github.com/tamas-ferenci/COVID19MagyarEpi", target = "_blank"),
+    "érhető el."),
+  div(class="fb-like", "data-href"="https://developers.facebook.com/docs/plugins/",
+      "data-width" = "", "data-layout"="standard", "data-action"="like", "data-size"="small", "data-share"="true"), p(),
   
   navlistPanel(
     tabPanel("Magyarázat", withMathJax(includeMarkdown("generalExplanation.md"))),
@@ -252,7 +294,18 @@ ui <- fluidPage(
              numericInput("SIsdReport", "A serial interval szórása:", 4.75, 0.01, 20, 0.01),
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
-  )
+  ),
+  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.06" ),
+  
+  tags$script( HTML( "var sc_project=11601191; 
+                      var sc_invisible=1; 
+                      var sc_security=\"5a06c22d\";
+                      var scJsHost = ((\"https:\" == document.location.protocol) ?
+                      \"https://secure.\" : \"http://www.\");
+                      document.write(\"<sc\"+\"ript type='text/javascript' src='\" +
+                      scJsHost+
+                      \"statcounter.com/counter/counter.js'></\"+\"script>\");" ),
+               type = "text/javascript" )
 )
 
 server <- function(input, output, session) {
