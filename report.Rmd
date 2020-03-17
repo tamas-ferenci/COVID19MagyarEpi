@@ -1,0 +1,60 @@
+---
+title: "Járványügyi jelentés -- Magyarország"
+output: pdf_document
+params:
+  ciconfReport: 95
+  SImuReport: 3.96
+  SIsdReport: 4.75
+---
+
+```{r, include=FALSE}
+library(data.table)
+library(ggplot2)
+knitr::opts_chunk$set(echo = FALSE)
+RawData <- readRDS("RawData.dat")
+r2R0gamma <- function(r, si_mean, si_sd) {
+  (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
+}
+lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 100) {
+  df <- nrow(x$model) - 2
+  r <- x$coefficients[2]
+  std_r <- stats::coef(summary(x))[, "Std. Error"][2]
+  r_sample <- r + std_r * stats::rt(n, df)
+  r2R0gamma(r_sample, si_mean, si_sd)
+}
+```
+
+# Járványgörbe
+
+A járvány jelenlegi görbéje, az illesztett exponenciális görbével és LOESS nemparaméteres simítóval:
+  
+```{r, echo=FALSE}
+pred <- as.data.table(exp(predict(lm(log(CaseNumber) ~ NumDate, data = RawData),
+                                  newdata = RawData, interval = "confidence", level = params$ciconfReport/100)))
+pred$Date <- RawData$Date
+ggplot(RawData, aes(x = Date, y = CaseNumber)) + geom_point(size = 3) + labs(x = "Dátum", y = "Esetszám [fő]") +
+  geom_line(data = pred, aes(y = fit), col = "red") +
+  geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red",
+              alpha = 0.2) +
+  geom_smooth(formula = y ~ x, method = "loess", col = "blue", se = TRUE, fill = "blue",
+              alpha = 0.2, level = params$ciconfReport/100, size = 1)
+```
+
+# Előrejelzés
+
+Számszerű előrejelzések a következő hétre:
+  
+```{r,echo=FALSE}
+pred <- as.data.table(exp(predict(lm(log(CaseNumber) ~ NumDate, data = RawData),
+                                  newdata = data.table(NumDate = 0:(nrow(RawData)+7-1)),
+                                  interval = "confidence", level = params$ciconfReport/100)))
+pred$Date <- seq.Date(min(RawData$Date), max(RawData$Date)+7, by = "days")
+pred$CaseNumber <- c(RawData$CaseNumber, rep(NA, 7))
+knitr::kable(pred[,c("Date", "CaseNumber", "fit", "lwr", "upr")],
+             col.names = c("Dátum", "Esetszám [fő]", "Becsült esetszám [fő]",
+                           "95% CI alsó széle [fő]", "95% CI felső széle [fő]"))
+```
+
+# TODO
+
+TODO

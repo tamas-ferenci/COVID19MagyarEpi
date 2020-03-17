@@ -2,10 +2,7 @@ library(shiny)
 library(ggplot2)
 library(data.table)
 
-RawData <- data.table(Date = seq.Date(as.Date("2020-03-04"), as.Date("2020-03-17"), by = "days"),
-                      CaseNumber = c(2, 1, 1, 3, 2, 2, 1, 1, 3, 3, 11, 2, 7, 11))
-RawData$CaseNumber <- as.integer(RawData$CaseNumber)
-RawData$NumDate <- as.numeric(RawData$Date)-min(as.numeric(RawData$Date))
+RawData <- readRDS("RawData.dat")
 
 r2R0gamma <- function(r, si_mean, si_sd) {
   (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
@@ -248,7 +245,13 @@ ui <- fluidPage(
                  #tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveExplanation.md")))
                )
              )
-    ), widths = c(2, 8)
+    ),
+    tabPanel("Automatikus jelentésgenerálás",
+             numericInput("ciconfReport", "Megbízhatósági szint [%]:", 95, 0, 100, 1),
+             numericInput("SImuReport", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
+             numericInput("SIsdReport", "A serial interval szórása:", 4.75, 0.01, 20, 0.01),
+             downloadButton("report", "Jelentés letöltése (PDF)")
+    ),  widths = c(2, 8)
   )
 )
 
@@ -374,6 +377,19 @@ server <- function(input, output, session) {
                                  colHeaders = c("Dátum", "R", "95% CrI alsó széle [fő]","95% CrI felső széle [fő]"),
                                  readOnly = TRUE)
   })
+  
+  output$report <- downloadHandler(
+    filename <- paste0("JarvanyugyiJelentes_", Sys.Date(), ".pdf" ),
+    content = function(file) {
+      td <- tempdir()
+      tempReport <- file.path(td, "report.Rmd")
+      tempRawData <- file.path(td, "RawData.dat")
+      file.copy("report.Rmd", tempReport, overwrite = TRUE)
+      file.copy("RawData.dat", tempRawData, overwrite = TRUE)
+      params <- list(ciconfReport = input$ciconfReport, SImuReport = input$SImuReport, SIsdReport = input$SIsdReport)
+      rmarkdown::render(tempReport, output_file = file, params = params, envir = new.env(parent = globalenv()))
+    }
+  )
 }
 
 shinyApp( ui = ui, server = server )
