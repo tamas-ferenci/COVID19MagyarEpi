@@ -4,10 +4,34 @@ library(data.table)
 
 RawData <- readRDS("RawData.dat")
 
+predData <- function(rd, dist, level, wind, projper) {
+  if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1)+1, tail(rd$Date,1)+projper, by = "days"),
+                                                               CaseNumber = NA,
+                                                               NumDate = (tail(rd$NumDate,1)+1):(tail(rd$NumDate,1)+projper)))
+  if(dist=="Lognormális") {
+    pred <- data.table(rd, exp(predict(lm(log(CaseNumber) ~ Date, data = rd[CaseNumber!=0],
+                                               subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1)),
+                                            newdata = rd, interval = "confidence", level = level/100)))
+  } else if(dist=="Poisson") {
+    m <- glm(CaseNumber ~ Date, data = rd, subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1),
+             family = poisson(link = "log"))
+    crit.value <- qnorm(1-(1-level/100)/2)
+    pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
+                                     data.table(fit = exp(fit), upr = exp(fit + (crit.value * se.fit)),
+                                                lwr = exp(fit - (crit.value * se.fit)))))
+  } else if(dist=="Negatív binomiális") {
+    m <- MASS::glm.nb(CaseNumber ~ Date, data = rd, subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1))
+    crit.value <- qnorm(1-(1-level/100)/2)
+    pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
+                                     data.table(fit = exp(fit), upr = exp(fit + (crit.value * se.fit)),
+                                                lwr = exp(fit - (crit.value * se.fit)))))
+  }
+}
+
 r2R0gamma <- function(r, si_mean, si_sd) {
   (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
 }
-lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 100) {
+lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
   df <- nrow(x$model) - 2
   r <- x$coefficients[2]
   std_r <- stats::coef(summary(x))[, "Std. Error"][2]
@@ -57,9 +81,10 @@ ui <- fluidPage(
   
   titlePanel("A magyarországi koronavírus járvány valós idejű epidemiológiája"),
   
-  p("A program teljes forráskódja", a("itt", href = "https://github.com/tamas-ferenci/COVID19MagyarEpi", target = "_blank"),
-    "érhető el."),
-  div(class="fb-like", "data-href"="https://developers.facebook.com/docs/plugins/",
+  p("A weboldal és az elemzések teljes forráskódja ",
+    a("itt", href = "https://github.com/tamas-ferenci/COVID19MagyarEpi", target = "_blank"),
+    " érhető el. Írta: Ferenci Tamás."),
+  div(class="fb-like", "data-href"="https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/",
       "data-width" = "", "data-layout"="standard", "data-action"="like", "data-size"="small", "data-share"="true"), p(),
   
   navlistPanel(
@@ -77,6 +102,9 @@ ui <- fluidPage(
                                    checkboxInput("loessfit", "LOESS nem-paraméteres simítógörbe illesztése")
                             ),
                             column(3,
+                                   conditionalPanel("input.expfit==1",
+                                                    radioButtons("distEpicurve", "Eloszlás:",
+                                                                 c( "Lognormális", "Poisson", "Negatív binomiális"))),
                                    conditionalPanel("input.expfit==1|input.loessfit==1",
                                                     checkboxInput("fitciEpicurve", "Konfidenciaintervallum megjelenítése")),
                                    conditionalPanel("(input.expfit==1|input.loessfit==1)&input.fitciEpicurve==1",
@@ -102,16 +130,19 @@ ui <- fluidPage(
                           hr(),
                           fluidRow(
                             column(3,
-                                   checkboxInput("logyProjGraph", "Függőleges tengely logaritmikus"),
-                                   numericInput("projperiodsGraph", "Előrejelzett napok száma", 3, 1, 14, 1)
+                                   checkboxInput("logyProjEmpGraph", "Függőleges tengely logaritmikus"),
+                                   numericInput("projperiodsProjEmpGraph", "Előrejelzett napok száma", 3, 1, 14, 1)
                             ),
                             column(3,
-                                   checkboxInput("fitciProjGraph", "Konfidenciaintervallum megjelenítése"),
-                                   conditionalPanel("input.fitciProjGraph==1",
-                                                    numericInput("ciconfProjGraph", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
+                                   radioButtons("distProjEmpGraph", "Eloszlás:",
+                                                c( "Lognormális", "Poisson", "Negatív binomiális")),
+                                   checkboxInput("fitciProjEmpGraph", "Konfidenciaintervallum megjelenítése"),
+                                   conditionalPanel("input.fitciProjEmpGraph==1",
+                                                    numericInput("ciconfProjEmpGraph", "Megbízhatósági szint [%]:",
+                                                                 95, 0, 100, 1))
                             ),
                             column(3,
-                                   sliderInput("windowProjGraph", "Ablakozás a görbeillesztéshez [nap]:", 1,
+                                   sliderInput("windowProjEmpGraph", "Ablakozás a görbeillesztéshez [nap]:", 1,
                                                nrow(RawData), c(1, nrow(RawData)), 1)
                             )
                           )
@@ -121,13 +152,15 @@ ui <- fluidPage(
                           hr(),
                           fluidRow(
                             column(3,
-                                   numericInput("projperiodsTab", "Előrejelzett napok száma", 3, 1, 14, 1)
+                                   numericInput("projperiodsProjEmpTab", "Előrejelzett napok száma", 3, 1, 14, 1)
                             ),
                             column(3,
-                                   numericInput("ciconfProjTab", "Megbízhatósági szint [%]:", 95, 0, 100, 1)
+                                   radioButtons("distProjEmpTab", "Eloszlás:",
+                                                c( "Lognormális", "Poisson", "Negatív binomiális")),
+                                   numericInput("ciconfProjEmpTab", "Megbízhatósági szint [%]:", 95, 0, 100, 1)
                             ),
                             column(3,
-                                   sliderInput("windowProjTab", "Ablakozás a görbeillesztéshez [nap]:", 1,
+                                   sliderInput("windowProjEmpTab", "Ablakozás a görbeillesztéshez [nap]:", 1,
                                                nrow(RawData), c(1, nrow(RawData)), 1)
                             )
                           )
@@ -295,7 +328,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.06" ),
+  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.07" ),
   
   tags$script( HTML( "var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -310,70 +343,71 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  dataInputEpicurve <- reactive({
+    predData(RawData, input$distEpicurve, input$ciconfEpicurve, input$windowEpicurve, 0)
+  })
+  
   output$epicurveGraph <- renderPlot({
-    pred <- as.data.table(exp(predict(lm(log(CaseNumber) ~ NumDate, data = RawData,
-                                         subset = NumDate>=(input$windowEpicurve[1]-1)&NumDate<=(input$windowEpicurve[2]-1)),
-                                      newdata = RawData, interval = "confidence", level = input$ciconfEpicurve/100)))
-    pred$Date <- RawData$Date
-    ggplot(RawData, aes(x = Date, y = CaseNumber)) + geom_point(size = 3) + labs(x = "Dátum", y = "Esetszám [fő]") +
+    if(input$expfit) pred <- dataInputEpicurve()
+    
+    ggplot(RawData, aes(x = Date, y = CaseNumber)) + geom_point(size = 3) + labs(x = "Dátum", y = "Napi esetszám [fő/nap]") +
       {if(input$logyEpicurve) scale_y_log10()} +
       {if(input$expfit) geom_line(data = pred, aes(y = fit), col = "red")} +
-      {if(input$expfit&input$fitciEpicurve) geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red",
-                                                        alpha = 0.2)} +
+      {if(input$expfit&input$fitciEpicurve)
+        geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red", alpha = 0.2)} +
       {if(input$loessfit) geom_smooth(data = subset(RawData, NumDate>=(input$windowEpicurve[1]-1)&
                                                       NumDate<=(input$windowEpicurve[2]-1)),
                                       formula = y ~ x, method = "loess", col = "blue", se = input$fitciEpicurve, fill = "blue",
-                                      alpha = 0.2, level = input$ciconfEpicurve/100, size = 1)}
+                                      alpha = 0.2, level = input$ciconfEpicurve/100, size = 0.5)}
   })
   
   output$epicurveTab <- rhandsontable::renderRHandsontable({
-    rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber")], colHeaders = c("Dátum", "Esetszám [fő]"), readOnly = TRUE)
+    rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber")],
+                                 colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE)
+  })
+  
+  dataInputProjEmpGraph <- reactive({
+    predData(RawData, input$distProjEmpGraph, input$ciconfProjEmpGraph, input$windowProjEmpGraph, input$projperiodsProjEmpGraph)
   })
   
   output$projEmpGraph <- renderPlot({
-    pred <- as.data.table(exp(predict(lm(log(CaseNumber) ~ NumDate, data = RawData,
-                                         subset = NumDate>=input$windowProjGraph[1]&NumDate<=input$windowProjGraph[2]),
-                                      newdata = data.table(NumDate = 0:(nrow(RawData)+input$projperiodsGraph-1)),
-                                      interval = "confidence", level = input$ciconfProjGraph/100)))
-    pred$Date <- seq.Date(min(RawData$Date), max(RawData$Date)+input$projperiodsGraph, by = "days")
+    pred <- dataInputProjEmpGraph()
     ggplot(RawData, aes(x = Date, y = CaseNumber)) +
       geom_point(size = 3) + geom_line(data = pred, aes(y = fit), col = "red") + labs(x = "Dátum", y = "Esetszám [fő]") +
-      {if(input$fitciProjGraph) geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red", alpha = 0.2)} +
-      {if(input$logyProjGraph) scale_y_log10()}
+      {if(input$fitciProjEmpGraph) geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red", alpha = 0.2)} +
+      {if(input$logyProjEmpGraph) scale_y_log10()}
+  })
+  
+  dataInputProjEmpTab <- reactive({
+    predData(RawData, input$distProjEmpTab, input$ciconfProjEmpTab, input$windowProjEmpTab, input$projperiodsProjEmpTab)
   })
   
   output$projEmpTab <- rhandsontable::renderRHandsontable({
-    pred <- as.data.table(exp(predict(lm(log(CaseNumber) ~ NumDate, data = RawData,
-                                         subset = NumDate>=(input$windowProjTab[1]-1)&NumDate<=(input$windowProjTab[2]-1)),
-                                      newdata = data.table(NumDate = 0:(nrow(RawData)+input$projperiodsTab-1)),
-                                      interval = "confidence", level = input$ciconfProjTab/100)))
-    pred$Date <- seq.Date(min(RawData$Date), max(RawData$Date)+input$projperiodsTab, by = "days")
-    pred$CaseNumber <- c(RawData$CaseNumber, rep(NA, input$projperiodsTab))
+    pred <- dataInputProjEmpTab()
     rhandsontable::rhandsontable(pred[,c("Date", "CaseNumber", "fit", "lwr", "upr")],
                                  colHeaders = c("Dátum", "Esetszám [fő]", "Becsült esetszám [fő]",
                                                 "95% CI alsó széle [fő]", "95% CI felső széle [fő]"), readOnly = TRUE)
   })
   
   output$grGraph <- renderPlot({
-    res <- data.frame(R0 = lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = RawData,
+    res <- data.frame(R = lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = RawData[CaseNumber!=0],
                                                 subset = NumDate>=(input$windowGrGraph[1]-1)&
                                                   NumDate<=(input$windowGrGraph[2]-1)), input$SImuGrGraph, input$SImuGrGraph))
-    ggplot(res,aes(R0)) + geom_density() + labs(y = "") + xlim(c(0.9, NA)) + geom_vline(xintercept = 1, col = "red", size = 2) +
-      expand_limits(x = 1)
+    ggplot(res,aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
   })
   
   output$grTab <- rhandsontable::renderRHandsontable({
-    res <- summary(lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = RawData,
+    res <- summary(lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = RawData[CaseNumber!=0],
                                         subset = NumDate>=(input$windowGrTab[1]-1)&NumDate<=(input$windowGrTab[2]-1)),
                                      input$SImuGrTab, input$SImuGrTab))
     rhandsontable::rhandsontable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag",
-                                                          "Felső kvartilis", "Maximum" ),
-                                            `Érték` = as.numeric(res) ), readOnly = TRUE)
+                                                          "Felső kvartilis", "Maximum"),
+                                            `Érték` = as.numeric(res)), readOnly = TRUE)
   })
   
   output$grSwGraph <- renderPlot({
     res <- zoo::rollapply(RawData$CaseNumber, input$windowLenGrSwGraph, function(cn)
-      lm2R0gamma_sample(lm(log(cn) ~ I(1:input$windowLenGrSwGraph)), input$SImuGrSwGraph, input$SIsdGrSwGraph))
+      lm2R0gamma_sample(lm(log(cn[cn!=0]) ~ I(1:input$windowLenGrSwGraph)[cn!=0]), input$SImuGrSwGraph, input$SIsdGrSwGraph))
     res <- data.table(do.call(rbind, lapply(1:nrow(res), function(i)
       c( mean(res[i,], na.rm = TRUE), quantile(res[i,], c(0.025, 0.975), na.rm = TRUE)))), check.names = TRUE)
     res$Date <- RawData$Date[input$windowLenGrSwGraph:nrow(RawData)]
@@ -384,7 +418,7 @@ server <- function(input, output, session) {
   
   output$grSwTab <- rhandsontable::renderRHandsontable({
     res <- zoo::rollapply(RawData$CaseNumber, input$windowLenGrSwTab, function(cn)
-      lm2R0gamma_sample(lm(log(cn) ~ I(1:input$windowLenGrSwTab)), input$SImuGrSwTab, input$SImuGrSwTab))
+      lm2R0gamma_sample(lm(log(cn[cn!=0]) ~ I(1:input$windowLenGrSwTab)[cn!=0]), input$SImuGrSwTab, input$SImuGrSwTab))
     res <- data.table(do.call(rbind, lapply(1:nrow(res), function(i)
       c( mean(res[i,], na.rm = TRUE), quantile(res[i,], c(0.025, 0.975), na.rm = TRUE)))), check.names = TRUE)
     res$Date <- RawData$Date[input$windowLenGrSwTab:nrow(RawData)]
@@ -393,12 +427,11 @@ server <- function(input, output, session) {
   })
   
   output$branchGraph <- renderPlot({
-    res <- data.table(R0 = EpiEstim::sample_posterior_R(EpiEstim::estimate_R(
+    res <- data.table(R = EpiEstim::sample_posterior_R(EpiEstim::estimate_R(
       RawData$CaseNumber, method = "parametric_si",
       config = EpiEstim::make_config(list(mean_si = input$SImuBranchGraph, std_si = input$SIsdBranchGraph,
                                           t_start = input$windowBranchGraph[1], t_end = input$windowBranchGraph[2])))))
-    ggplot(res,aes(R0)) + geom_density() + labs(y = "") + xlim(c(0.9, NA)) + geom_vline(xintercept = 1, col = "red", size = 2) +
-      expand_limits(x = 1)
+    ggplot(res,aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
   })
   
   output$branchTab <- rhandsontable::renderRHandsontable({
@@ -408,7 +441,7 @@ server <- function(input, output, session) {
                                           t_start = input$windowBranchTab[1], t_end = input$windowBranchTab[2])))))
     rhandsontable::rhandsontable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag",
                                                           "Felső kvartilis", "Maximum" ),
-                                            `Érték` = as.numeric(res) ), readOnly = TRUE)
+                                            `Érték` = as.numeric(res)), readOnly = TRUE)
   })
   
   output$branchSwGraph <- renderPlot({
