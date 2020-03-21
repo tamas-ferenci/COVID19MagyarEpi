@@ -6,26 +6,26 @@ RawData <- readRDS("RawData.dat")
 
 predData <- function(rd, dist, level, wind, projper) {
   if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1)+1, tail(rd$Date,1)+projper, by = "days"),
-                                                               CaseNumber = NA,
-                                                               NumDate = (tail(rd$NumDate,1)+1):(tail(rd$NumDate,1)+projper)))
+                                           CaseNumber = NA,
+                                           NumDate = (tail(rd$NumDate,1)+1):(tail(rd$NumDate,1)+projper)))
   if(dist=="Lognormális") {
-    pred <- data.table(rd, exp(predict(lm(log(CaseNumber) ~ Date, data = rd[CaseNumber!=0],
-                                               subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1)),
-                                            newdata = rd, interval = "confidence", level = level/100)))
+    m <- lm(log(CaseNumber) ~ Date, data = rd[CaseNumber!=0], subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1))
+    pred <- data.table(rd, exp(predict(m, newdata = rd, interval = "confidence", level = level/100)))
   } else if(dist=="Poisson") {
     m <- glm(CaseNumber ~ Date, data = rd, subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1),
              family = poisson(link = "log"))
     crit.value <- qnorm(1-(1-level/100)/2)
     pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
-                                     data.table(fit = exp(fit), upr = exp(fit + (crit.value * se.fit)),
-                                                lwr = exp(fit - (crit.value * se.fit)))))
+                                data.table(fit = exp(fit), upr = exp(fit + (crit.value * se.fit)),
+                                           lwr = exp(fit - (crit.value * se.fit)))))
   } else if(dist=="Negatív binomiális") {
     m <- MASS::glm.nb(CaseNumber ~ Date, data = rd, subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1))
     crit.value <- qnorm(1-(1-level/100)/2)
     pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
-                                     data.table(fit = exp(fit), upr = exp(fit + (crit.value * se.fit)),
-                                                lwr = exp(fit - (crit.value * se.fit)))))
+                                data.table(fit = exp(fit), upr = exp(fit + (crit.value * se.fit)),
+                                           lwr = exp(fit - (crit.value * se.fit)))))
   }
+  list(pred = pred, m = m)
 }
 
 r2R0gamma <- function(r, si_mean, si_sd) {
@@ -38,6 +38,9 @@ lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
   r_sample <- r + std_r * stats::rt(n, df)
   r2R0gamma(r_sample, si_mean, si_sd)
 }
+
+round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, lapply(.SD, function(x)
+  if(is.numeric(x)&!is.integer(x)) format(round(x, digits), nsmall = digits, trim = TRUE) else x)]
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -94,6 +97,7 @@ ui <- fluidPage(
                tabsetPanel(
                  tabPanel("Grafikon",
                           plotOutput("epicurveGraph"),
+                          conditionalPanel("input.expfit==1", textOutput("epicurveText")),
                           hr(),
                           fluidRow(
                             column(3,
@@ -328,7 +332,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.07" ),
+  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.08" ),
   
   tags$script( HTML( "var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -348,7 +352,7 @@ server <- function(input, output, session) {
   })
   
   output$epicurveGraph <- renderPlot({
-    if(input$expfit) pred <- dataInputEpicurve()
+    if(input$expfit) pred <- dataInputEpicurve()$pred
     
     ggplot(RawData, aes(x = Date, y = CaseNumber)) + geom_point(size = 3) + labs(x = "Dátum", y = "Napi esetszám [fő/nap]") +
       {if(input$logyEpicurve) scale_y_log10()} +
@@ -361,6 +365,14 @@ server <- function(input, output, session) {
                                       alpha = 0.2, level = input$ciconfEpicurve/100, size = 0.5)}
   })
   
+  output$epicurveText <- renderText({
+    m <- dataInputEpicurve()$m
+    paste0("A fenti exponenciális illesztéssel a növekedési ráta ", round_dt(coef(m))[rn=="Date", -"rn"], " (95%-os CI: ",
+           paste0(round_dt(confint(m))[rn=="Date", -"rn"], collapse = "-"), "). Ez azt jelenti, hogy a duplázódási idő ",
+           "(az ahhoz szükséges idő, hogy a betegek száma kétszeresére nőjön) ", round_dt(log(2)/coef(m))[rn=="Date", -"rn"],
+           " nap (95%-os CI: ", paste0(rev(round_dt(log(2)/confint(m))[rn=="Date", -"rn"]), collapse = "-"), ").")
+  })
+  
   output$epicurveTab <- rhandsontable::renderRHandsontable({
     rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber")],
                                  colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE)
@@ -371,7 +383,7 @@ server <- function(input, output, session) {
   })
   
   output$projEmpGraph <- renderPlot({
-    pred <- dataInputProjEmpGraph()
+    pred <- dataInputProjEmpGraph()$pred
     ggplot(RawData, aes(x = Date, y = CaseNumber)) +
       geom_point(size = 3) + geom_line(data = pred, aes(y = fit), col = "red") + labs(x = "Dátum", y = "Esetszám [fő]") +
       {if(input$fitciProjEmpGraph) geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red", alpha = 0.2)} +
@@ -383,16 +395,16 @@ server <- function(input, output, session) {
   })
   
   output$projEmpTab <- rhandsontable::renderRHandsontable({
-    pred <- dataInputProjEmpTab()
-    rhandsontable::rhandsontable(pred[,c("Date", "CaseNumber", "fit", "lwr", "upr")],
-                                 colHeaders = c("Dátum", "Esetszám [fő]", "Becsült esetszám [fő]",
-                                                "95% CI alsó széle [fő]", "95% CI felső széle [fő]"), readOnly = TRUE)
+    pred <- dataInputProjEmpTab()$pred
+    rhandsontable::rhandsontable(round_dt(pred)[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
+                                                    `Becsült napi esetszám (95%-os CI) [fő/nap]` =
+                                                      paste0(fit, " (", lwr, "-", upr, ")"))], readOnly = TRUE)
   })
   
   output$grGraph <- renderPlot({
     res <- data.frame(R = lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = RawData[CaseNumber!=0],
-                                                subset = NumDate>=(input$windowGrGraph[1]-1)&
-                                                  NumDate<=(input$windowGrGraph[2]-1)), input$SImuGrGraph, input$SImuGrGraph))
+                                               subset = NumDate>=(input$windowGrGraph[1]-1)&
+                                                 NumDate<=(input$windowGrGraph[2]-1)), input$SImuGrGraph, input$SImuGrGraph))
     ggplot(res,aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
   })
   
@@ -422,8 +434,8 @@ server <- function(input, output, session) {
     res <- data.table(do.call(rbind, lapply(1:nrow(res), function(i)
       c( mean(res[i,], na.rm = TRUE), quantile(res[i,], c(0.025, 0.975), na.rm = TRUE)))), check.names = TRUE)
     res$Date <- RawData$Date[input$windowLenGrSwTab:nrow(RawData)]
-    rhandsontable::rhandsontable(res[,c(4,1:3)], colHeaders = c("Dátum", "R", "95% CI alsó széle [fő]",
-                                                                "95% CI felső széle [fő]"), readOnly = TRUE)
+    rhandsontable::rhandsontable(round_dt(res)[, .(`Dátum` = Date, `R (95%-os CI)` = paste0(V1, " (", X2.5., "-", X97.5., ")"))],
+                                 readOnly = TRUE)
   })
   
   output$branchGraph <- renderPlot({
@@ -459,13 +471,13 @@ server <- function(input, output, session) {
                                 config = EpiEstim::make_config(list(mean_si = input$SImuBranchGraph,
                                                                     std_si = input$SIsdBranchGraph)))$R
     res$Date <- RawData$Date[(input$windowLenGrSwGraph+1):nrow(RawData)]
-    rhandsontable::rhandsontable(res[,c("Date", "Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")],
-                                 colHeaders = c("Dátum", "R", "95% CrI alsó széle [fő]","95% CrI felső széle [fő]"),
-                                 readOnly = TRUE)
+    rhandsontable::rhandsontable(round_dt(res)[, .(`Dátum` = Date,
+                                                   `R (95%-os CrI)` = paste0(`Mean(R)`, " (",`Quantile.0.025(R)`, "-",
+                                                                             `Quantile.0.975(R)`, ")"))], readOnly = TRUE)
   })
   
   output$report <- downloadHandler(
-    filename <- paste0("JarvanyugyiJelentes_", Sys.Date(), ".pdf" ),
+    filename <- paste0("JarvanyugyiJelentes_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf" ),
     content = function(file) {
       td <- tempdir()
       tempReport <- file.path(td, "report.Rmd")

@@ -1,6 +1,6 @@
 ## Adatok forrása
 
-A program az adatokat az Európai Betegségmegelőzési és Járványvédelmi Központ (ECDC) hivatalos adatközléséből veszi át. Remélem ez csak átmeneti helyzet addig, amíg normális formátumban elérhető (=gépi úton feldolgozható, napi bontású) hazai adatközlés nem jön létre.
+Az adatokat egyelőre kézzel gépelem be az NNK adatközlései alapján, naponta. Remélem ez csak átmeneti helyzet addig, amíg normális formátumban elérhető (=gépi úton feldolgozható, napi bontású) hazai adatközlés nem jön létre.
 
 ## Alapgondolat
 
