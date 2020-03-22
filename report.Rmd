@@ -2,12 +2,11 @@
 title: "A COVID-19 magyarországi járványügyi helyzete"
 date: '`r format(Sys.time(), "%Y\\. %m\\. %d\\. %H:%M")`'
 author: "Ferenci Tamás, https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/"
-email: "ferenci.tamas@nik.uni-obuda.hu"
 output: pdf_document
 params:
-  ciconfReport: 95
-  SImuReport: 3.96
-  SIsdReport: 4.75
+  reportConf: 95
+  reportSImu: 3.96
+  reportSIsd: 4.75
 ---
 
 ```{r, include=FALSE}
@@ -15,42 +14,13 @@ library(data.table)
 library(ggplot2)
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, dev = "cairo_pdf")
 options(digits = 3, knitr.kable.NA = "")
-pdf.options(encoding = "ISOLatin2.enc")
 RawData <- readRDS("RawData.dat")
-r2R0gamma <- function(r, si_mean, si_sd) {
-  (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
-}
-lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
-  df <- nrow(x$model) - 2
-  r <- x$coefficients[2]
-  std_r <- stats::coef(summary(x))[, "Std. Error"][2]
-  r_sample <- r + std_r * stats::rt(n, df)
-  r2R0gamma(r_sample, si_mean, si_sd)
-}
-round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, lapply(.SD, function(x)
-  if(is.numeric(x)&!is.integer(x)) format(round(x, digits), nsmall = digits, trim = TRUE) else x)]
-rd <- rbind(RawData, data.table(Date = seq.Date(tail(RawData$Date,1)+1, tail(RawData$Date,1)+7, by = "days"),
-                                CaseNumber = NA, NumDate = (tail(RawData$NumDate,1)+1):(tail(RawData$NumDate,1)+7)))
-m <- glm(CaseNumber ~ Date, data = rd, family = poisson(link = "log"))
-crit.value <- qnorm(1-(1-params$ciconfReport/100)/2)
-pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
-                            data.table(fit = exp(fit), upr = exp(fit + (crit.value * se.fit)),
-                                       lwr = exp(fit - (crit.value * se.fit)))))
-resGr <- data.frame(R = lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = rd[!is.na(CaseNumber)][CaseNumber!=0]),
-                                          params$SImuReport, params$SImuReport, n = 1000))
-resGrSw <- zoo::rollapply(rd[!is.na(CaseNumber)]$CaseNumber, 7, function(cn)
-  lm2R0gamma_sample(lm(log(cn[cn!=0]) ~ I(1:7)[cn!=0]), params$SImuReport, params$SIsdReport))
-resGrSw <- data.table(do.call(rbind, lapply(1:nrow(resGrSw), function(i)
-  c( mean(resGrSw[i,], na.rm = TRUE), quantile(resGrSw[i,], c(0.025, 0.975), na.rm = TRUE)))), check.names = TRUE)
-resGrSw$Date <- rd[!is.na(CaseNumber)][7:sum(!is.na(CaseNumber))]$Date
-resBranch <- data.table(R = EpiEstim::sample_posterior_R(EpiEstim::estimate_R(
-  rd[!is.na(CaseNumber)]$CaseNumber, method = "parametric_si",
-  config = EpiEstim::make_config(list(mean_si = params$SImuReport, std_si = params$SIsdReport,
-                                      t_start = 2, t_end = sum(!is.na(RawData$CaseNumber)))))))
-resBranchSw <- EpiEstim::estimate_R(rd[!is.na(CaseNumber)]$CaseNumber, method = "parametric_si",
-                                    config = EpiEstim::make_config(list(mean_si = params$SImuReport,
-                                                                        std_si = params$SIsdReport)))$R
-resBranchSw$Date <- rd[!is.na(CaseNumber)][(7+1):sum(!is.na(CaseNumber))]$Date
+source("EpiHelpers.R", encoding = "UTF-8")
+resGr <- grData(predData(RawData, "Poisson", 95)$m, params$reportSImu, params$reportSIsd)
+resGrSw <- grSwData(RawData, lapply( 1:(nrow(RawData)-7+1), function(i) predData(RawData[i:(i+7-1)], "Poisson", 95)$m ),
+                    params$reportSImu, params$reportSIsd, 7)
+resBranch <- branchData(RawData, params$reportSImu, params$reportSIsd)
+resBranchSw <- branchSwData(RawData, params$reportSImu, params$reportSIsd, 7)
 ```
 
 # Járványgörbe
@@ -58,28 +28,25 @@ resBranchSw$Date <- rd[!is.na(CaseNumber)][(7+1):sum(!is.na(CaseNumber))]$Date
 A járvány jelenlegi görbéje, az illesztett exponenciális görbével és LOESS nemparaméteres simítóval, logaritmikus függőleges tengellyel:
 
 ```{r}
-ggplot(pred[!is.na(CaseNumber)], aes(x = Date, y = CaseNumber)) + geom_point(size = 3) + scale_y_log10() +
-  labs(x = "Dátum", y = "Napi esetszám [fő/nap]") + geom_line(aes(y = fit), col = "red") +
-  geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr), fill = "red", alpha = 0.2) +
-  geom_smooth(formula = y ~ x, method = "loess", col = "blue", se = TRUE, fill = "blue",
-              alpha = 0.2, level = params$ciconfReport/100, size = 0.5)
+epicurvePlot(predData(RawData, "Poisson", params$reportConf)$pred, TRUE, TRUE, TRUE, TRUE, params$reportConf)
 ```
+
+`r grText(predData(RawData, "Poisson", params$reportConf)$m)`
 
 # Előrejelzés (empirikus)
 
 Grafikus előrejelzés a következő hétre:
 
 ```{r}
-ggplot(pred, aes(x = Date, y = CaseNumber)) + scale_y_log10() +
-  geom_point(size = 3) + geom_line(data = pred, aes(y = fit), col = "red") + labs(x = "Dátum", y = "Esetszám [fő]") +
-  geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red", alpha = 0.2)
+epicurvePlot(predData(RawData, "Poisson", params$reportConf, NA, 7)$pred, TRUE, TRUE, FALSE, TRUE, NA)
 ```
 
 Számszerű előrejelzések a következő hétre:
 
 ```{r}
-knitr::kable(round_dt(pred)[, .(`Dátum` = Date, `Esetszám [fő]` = CaseNumber,
-                                `Becsült esetszám (95%-os CI) [fő]` = paste0(fit, " (", lwr, "-", upr, ")"))])
+res <- round_dt(predData(RawData, "Poisson", params$reportConf, NA, 7)$pred)
+res$Pred <-  paste0(res$fit, " (", res$lwr, "-", res$upr, ")")
+knitr::kable(res[, .(`Dátum` = Date, `Esetszám [fő]` = CaseNumber, `Becsült esetszám (95%-os CI) [fő]` = Pred)])
 ```
 
 # Számításhoz használt feltevések
@@ -95,15 +62,14 @@ A következő számításokhoz a modell feltételezi, hogy a serial interval (te
 Eloszlás:
 
 ```{r}
-ggplot(resGr,aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
+ggplot(resGr, aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
 ```
 
 Számszerű adatok:
 
 ```{r}
-knitr::kable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag",
-                                      "Felső kvartilis", "Maximum"),
-                        `Érték` = as.numeric(summary(resGr$R))))
+knitr::kable(data.table( `Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum"),
+                         `Érték` = as.numeric(summary(resGr$R))))
 ```
 
 ### 7 napos csúszóablak
@@ -111,8 +77,8 @@ knitr::kable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián",
 Grafikus ábra:
 
 ```{r}
-ggplot(resGrSw,aes(x = Date)) + geom_line(aes(y = V1), col = "blue") +
-  geom_ribbon(aes(ymin = X2.5., ymax = X97.5.), fill = "blue", alpha = 0.2) + geom_hline(yintercept = 1, color = "red") +
+ggplot(resGrSw, aes(x = Date)) + geom_line(aes(y = V1), col = "blue") +
+  geom_ribbon(aes(ymin = X2.5., ymax = X97.5.), fill = "blue", alpha = 0.2) +  geom_hline(yintercept = 1, color = "red") +
   labs(x = "Dátum", y = "R") + expand_limits(y = 1)
 ```
 
@@ -129,7 +95,7 @@ knitr::kable(round_dt(resGrSw)[, .(`Dátum` = Date, `R (95%-os CI)` = paste0(V1,
 Eloszlás:
 
 ```{r}
-ggplot(resBranch,aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) +
+ggplot(resBranch, aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) +
   expand_limits(x = 1)
 ```
 
@@ -145,7 +111,7 @@ knitr::kable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián",
 Grafikus ábra:
 
 ```{r}
-ggplot(resBranchSw,aes(x = Date)) + geom_line(aes(y = `Mean(R)`), col = "blue") +
+ggplot(resBranchSw, aes(x = Date)) + geom_line(aes(y = `Mean(R)`), col = "blue") +
   geom_ribbon(aes(ymin = `Quantile.0.025(R)`, ymax = `Quantile.0.975(R)`), fill = "blue", alpha = 0.2) +
   geom_hline(yintercept = 1, color = "red") + labs(x = "Dátum", y = "R") + expand_limits(y = 1)
 ```

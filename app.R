@@ -4,40 +4,7 @@ library(data.table)
 
 RawData <- readRDS("RawData.dat")
 
-predData <- function(rd, dist, level, wind, projper = 0, deltar = NA) {
-  if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
-                                           CaseNumber = NA,
-                                           NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
-  rd$Predicted <- is.na(rd$CaseNumber)
-  crit.value <- qt(1-(1-level/100)/2, df = sum(!rd$Predicted)-2)
-  if(dist=="Lognormális") {
-    m <- lm(log(CaseNumber) ~ Date, data = rd[CaseNumber!=0], subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1))
-  } else if(dist=="Poisson") {
-    m <- glm(CaseNumber ~ Date, data = rd, subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1), family = poisson(link = "log"))
-  } else if(dist=="Negatív binomiális") {
-    m <- MASS::glm.nb(CaseNumber ~ Date, data = rd, subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1))
-  }
-  if(!is.na(deltar)) m <- update(m, formula = as.formula(paste0(".~.+offset(", deltar, "*Predicted*(NumDate-",
-                                                                sum(!rd$Predicted)-1,"))")))
-  pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
-                              data.table(fit = exp(fit), lwr = exp(fit - (crit.value * se.fit)),
-                                         upr = exp(fit + (crit.value * se.fit)))))
-  list(pred = pred, m = m)
-}
-
-r2R0gamma <- function(r, si_mean, si_sd) {
-  (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
-}
-lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
-  df <- nrow(x$model) - 2
-  r <- x$coefficients[2]
-  std_r <- stats::coef(summary(x))[, "Std. Error"][2]
-  r_sample <- r + std_r * stats::rt(n, df)
-  r2R0gamma(r_sample, si_mean, si_sd)
-}
-
-round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, lapply(.SD, function(x)
-  if(is.numeric(x)&!is.integer(x)) format(round(x, digits), nsmall = digits, trim = TRUE) else x)]
+source("EpiHelpers.R", encoding = "UTF-8")
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -110,7 +77,7 @@ ui <- fluidPage(
                             column(3,
                                    conditionalPanel("input.epicurveType=='Grafikon'",
                                                     conditionalPanel("input.epicurveExpfit==1",
-                                                                     radioButtons("epicurveDist", "Eloszlás:",
+                                                                     radioButtons("epicurveDistr", "Eloszlás:",
                                                                                   c( "Lognormális", "Poisson",
                                                                                      "Negatív binomiális"))),
                                                     conditionalPanel("input.epicurveExpfit==1|input.epicurveLoessfit==1",
@@ -151,9 +118,9 @@ ui <- fluidPage(
                                                     checkboxInput("projempLogy", "Függőleges tengely logaritmikus"))
                             ),
                             column(3,
-                                   radioButtons("projempDist", "Eloszlás:", c( "Lognormális", "Poisson", "Negatív binomiális")),
-                                   sliderInput("projempWindow", "Ablakozás a görbeillesztéshez [nap]:", 1,
-                                               nrow(RawData), c(1, nrow(RawData)), 1)
+                                   h4("Görbeillesztés paraméterei"),
+                                   radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális")),
+                                   sliderInput("projempWindow", "Ablakozás", 1, nrow(RawData), c(1, nrow(RawData)), 1)
                             ),
                             column(3,
                                    radioButtons("projempFuture", "Jövőbeli növekedés:", c("Tényadat",
@@ -170,62 +137,43 @@ ui <- fluidPage(
     tabPanel("R becslés növekedési ráta alapján",
              fluidPage(
                tabsetPanel(
-                 tabPanel("Eloszlás (teljes vagy ablakozott görbe)",
-                          h4("A teljes, vagy ablakozott görbe alapján számolt R, és a becslés bizonytalanságát ",
-                             "jellemző eloszlása"),
-                          plotOutput("grGraph"),
+                 tabPanel("Teljes (vagy ablakozott) görbe",
+                          conditionalPanel("input.grType=='Grafikon'",
+                                           h4("A teljes, vagy ablakozott görbe alapján számolt R, és a becslés ",
+                                              "bizonytalanságát jellemző eloszlása"),
+                                           plotOutput("grGraph")),
+                          conditionalPanel("input.grType=='Táblázat'", rhandsontable::rHandsontableOutput("grTab")),
                           hr(),
                           fluidRow(
+                            column(3, radioButtons("grType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
-                                   numericInput("SImuGrGraph", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdGrGraph", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
+                                   h4("Görbeillesztés paraméterei"),
+                                   radioButtons("grDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális")),
+                                   sliderInput("grWindow", "Ablakozás:", 1, nrow(RawData), c(1, nrow(RawData)), 1)
                             ),
                             column(3,
-                                   sliderInput("windowGrGraph", "Ablakozás a görbeillesztéshez [nap]:", 1,
-                                               nrow(RawData), c(1, nrow(RawData)), 1)
-                            )
-                          )
-                 ), 
-                 tabPanel("Számszerű adatok (teljes vagy ablakozott görbe)",
-                          h4("Az R becslésének adatai"),
-                          rhandsontable::rHandsontableOutput("grTab"),
-                          hr(),
-                          fluidRow(
-                            column(3,
-                                   numericInput("SImuGrTab", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdGrTab", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
-                            ),
-                            column(3,
-                                   sliderInput("windowGrTab", "Ablakozás a görbeillesztéshez [nap]:", 1,
-                                               nrow(RawData), c(1, nrow(RawData)), 1)
+                                   numericInput("grSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
+                                   numericInput("grSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
                             )
                           )
                  ),
-                 tabPanel("Grafikon (csúszóablak)",
-                          h4("Az R alakulása az időben"),
-                          plotOutput("grSwGraph"),
+                 tabPanel("Csúszóablak",
+                          conditionalPanel("input.grSwType=='Grafikon'",
+                                           h4("R alakulása az időben"),
+                                           plotOutput("grSwGraph")),
+                          conditionalPanel("input.grSwType=='Táblázat'", rhandsontable::rHandsontableOutput("grSwTab")),
                           hr(),
                           fluidRow(
+                            column(3, radioButtons("grSwType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
-                                   numericInput("SImuGrSwGraph", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdGrSwGraph", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
+                                   h4("Görbeillesztés paraméterei"),
+                                   radioButtons("grSwDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális")),
+                                   sliderInput("grSwWindow", "Ablakozás", 1, nrow(RawData), c(1, nrow(RawData)), 1)
                             ),
                             column(3,
-                                   sliderInput("windowLenGrSwGraph", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1)
-                            )
-                          )
-                 ), 
-                 tabPanel("Számszerű adatok (csúszóablak)",
-                          h4("Az R becslésének adatai"),
-                          rhandsontable::rHandsontableOutput("grSwTab"),
-                          hr(),
-                          fluidRow(
-                            column(3,
-                                   numericInput("SImuGrSwTab", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdGrSwTab", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
-                            ),
-                            column(3,
-                                   sliderInput("windowLenGrSwTab", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1)
+                                   numericInput("grSwSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
+                                   numericInput("grSwSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01),
+                                   sliderInput("grSwWindowlen", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1)
                             )
                           )
                  ),
@@ -236,62 +184,39 @@ ui <- fluidPage(
     tabPanel("R becslés elágazó folyamat-elven",
              fluidPage(
                tabsetPanel(
-                 tabPanel("Eloszlás (teljes vagy ablakozott görbe)",
-                          h4("A teljes, vagy ablakozott görbe alapján számolt R, és a becslés bizonytalanságát ",
-                             "jellemző eloszlása"),
-                          plotOutput("branchGraph"),
+                 tabPanel("Teljes (vagy ablakozott) görbe)",
+                          conditionalPanel("input.branchType=='Grafikon'",
+                                           h4("A teljes, vagy ablakozott görbe alapján számolt R, és a becslés ",
+                                              "bizonytalanságát jellemző eloszlása"),
+                                           plotOutput("branchGraph")),
+                          conditionalPanel("input.branchType=='Táblázat'", rhandsontable::rHandsontableOutput("branchTab")),
                           hr(),
                           fluidRow(
+                            column(3, radioButtons("branchType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
-                                   numericInput("SImuBranchGraph", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdBranchGraph", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
+                                   numericInput("branchSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
+                                   numericInput("branchSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
                             ),
                             column(3,
-                                   sliderInput("windowBranchGraph", "Ablakozás a görbeillesztéshez [nap]:", 2,
-                                               nrow(RawData), c(2, nrow(RawData)), 1)
-                            )
-                          )
-                 ), 
-                 tabPanel("Számszerű adatok (teljes vagy ablakozott görbe)",
-                          h4("Az R becslésének adatai"),
-                          rhandsontable::rHandsontableOutput("branchTab"),
-                          hr(),
-                          fluidRow(
-                            column(3,
-                                   numericInput("SImuBranchTab", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdBranchTab", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
-                            ),
-                            column(3,
-                                   sliderInput("windowBranchTab", "Ablakozás a görbeillesztéshez [nap]:", 2,
+                                   sliderInput("branchWindow", "Ablakozás az R becsléshez [nap]:", 2,
                                                nrow(RawData), c(2, nrow(RawData)), 1)
                             )
                           )
                  ),
-                 tabPanel("Grafikon (csúszóablak)",
-                          h4("Az R alakulása az időben"),
-                          plotOutput("branchSwGraph"),
+                 tabPanel("Csúszóablak",
+                          conditionalPanel("input.branchSwType=='Grafikon'",
+                                           h4("R alakulása az időben"),
+                                           plotOutput("branchSwGraph")),
+                          conditionalPanel("input.branchSwType=='Táblázat'", rhandsontable::rHandsontableOutput("branchSwTab")),
                           hr(),
                           fluidRow(
+                            column(3, radioButtons("branchSwType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
-                                   numericInput("SImuBranchSwGraph", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdBranchSwGraph", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
+                                   numericInput("branchSwSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
+                                   numericInput("branchSwSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
                             ),
                             column(3,
-                                   sliderInput("windowLenBranchSwGraph", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1)
-                            )
-                          )
-                 ), 
-                 tabPanel("Számszerű adatok (csúszóablak)",
-                          h4("Az R becslésének adatai"),
-                          rhandsontable::rHandsontableOutput("branchSwTab"),
-                          hr(),
-                          fluidRow(
-                            column(3,
-                                   numericInput("SImuBranchSwTab", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("SIsdBranchSwTab", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
-                            ),
-                            column(3,
-                                   sliderInput("windowLenBranchSwTab", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1)
+                                   sliderInput("branchSwWindowlen", "Csúszóablak szélessége [nap]:", 1, nrow(RawData)-2, 7, 1)
                             )
                           )
                  ),
@@ -320,13 +245,13 @@ ui <- fluidPage(
              )
     ),
     tabPanel("Automatikus jelentésgenerálás",
-             numericInput("ciconfReport", "Megbízhatósági szint [%]:", 95, 0, 100, 1),
-             numericInput("SImuReport", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-             numericInput("SIsdReport", "A serial interval szórása:", 4.75, 0.01, 20, 0.01),
+             numericInput("reportConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1),
+             numericInput("reportSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
+             numericInput("reportSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01),
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.09" ),
+  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.11" ),
   
   tags$script( HTML( "var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -342,28 +267,16 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   dataInputEpicurve <- reactive({
-    predData(RawData, input$epicurveDist, input$epicurveConf, input$epicurveWindow)
+    predData(RawData, input$epicurveDistr, input$epicurveConf, input$epicurveWindow)
   })
   
   output$epicurveGraph <- renderPlot({
-    if(input$epicurveExpfit) pred <- dataInputEpicurve()$pred
-    ggplot(RawData, aes(x = Date, y = CaseNumber)) + geom_point(size = 3) + labs(x = "Dátum", y = "Napi esetszám [fő/nap]") +
-      {if(input$epicurveLogy) scale_y_log10()} +
-      {if(input$epicurveExpfit) geom_line(data = pred, aes(y = fit), col = "red")} +
-      {if(input$epicurveExpfit&input$epicurveCi)
-        geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr), fill = "red", alpha = 0.2)} +
-      {if(input$epicurveLoessfit) geom_smooth(data = subset(RawData, NumDate>=(input$epicurveWindow[1]-1)&
-                                                              NumDate<=(input$epicurveWindow[2]-1)),
-                                              formula = y ~ x, method = "loess", col = "blue", se = input$epicurveCi,
-                                              fill = "blue", alpha = 0.2, level = input$epicurveConf/100, size = 0.5)}
+    epicurvePlot(dataInputEpicurve()$pred, input$epicurveLogy, input$epicurveExpfit, input$epicurveLoessfit,
+                 input$epicurveCi, input$epicurveConf)
   })
   
   output$epicurveText <- renderText({
-    m <- dataInputEpicurve()$m
-    paste0("A fenti exponenciális illesztéssel a növekedési ráta ", round_dt(coef(m))[rn=="Date", -"rn"], " (95%-os CI: ",
-           paste0(round_dt(confint(m))[rn=="Date", -"rn"], collapse = " - "), "). Ez azt jelenti, hogy a duplázódási idő ",
-           "(az ahhoz szükséges idő, hogy a napi esetszám kétszeresére nőjön) ", round_dt(log(2)/coef(m))[rn=="Date", -"rn"],
-           " nap (95%-os CI: ", paste0(rev(round_dt(log(2)/confint(m))[rn=="Date", -"rn"]), collapse = " - "), ").")
+    grText(dataInputEpicurve()$m, if(input$projempFuture=="Tényadat") 0 else input$projempDeltar)
   })
   
   output$epicurveTab <- rhandsontable::renderRHandsontable({
@@ -372,27 +285,16 @@ server <- function(input, output, session) {
   })
   
   dataInputProjemp <- reactive({
-    predData(RawData, input$projempDist, input$projempConf, input$projempWindow, input$projempPeriods,
+    predData(RawData, input$projempDistr, input$projempConf, input$projempWindow, input$projempPeriods,
              if(input$projempFuture=="Tényadat") 0 else input$projempDeltar)
   })
   
   output$projempGraph <- renderPlot({
-    pred <- dataInputProjemp()$pred
-    ggplot(RawData, aes(x = Date, y = CaseNumber)) + labs(x = "Dátum", y = "Napi esetszám [fő/nap]") +
-      geom_point(size = 3) + geom_line(data = pred, aes(y = fit, color = is.na(CaseNumber)), show.legend = FALSE) +
-      {if(input$projempCi) geom_ribbon(data = pred, aes(y = fit, ymin = lwr, ymax = upr, fill = is.na(CaseNumber)),
-                                       alpha = 0.2, show.legend = FALSE)} +
-      {if(input$projempLogy) scale_y_log10()}
+    epicurvePlot(dataInputProjemp()$pred, input$projempLogy, TRUE, FALSE, input$projempCi, NA)
   })
   
   output$projempGraphText <- renderText({
-    m <- dataInputProjemp()$m
-    delta <- if(input$projempFuture=="Tényadat") 0 else input$projempDeltar 
-    paste0("A jövőbeli növekedési ráta ", round_dt(coef(m)+delta)[rn=="Date", -"rn"], " (95%-os CI: ",
-           paste0(round_dt(confint(m)+delta)[rn=="Date", -"rn"], collapse = " - "),
-           "). Ez azt jelenti, hogy a duplázódási idő (az ahhoz szükséges idő, hogy a napi esetszám kétszeresére nőjön) ",
-           round_dt(log(2)/(coef(m)+delta))[rn=="Date", -"rn"], " nap (95%-os CI: ",
-           paste0(rev(round_dt(log(2)/(confint(m)+delta))[rn=="Date", -"rn"]), collapse = " - "), ").")
+    grText(dataInputProjemp()$m, if(input$projempFuture=="Tényadat") 0 else input$projempDeltar, TRUE)
   })
   
   output$projempTab <- rhandsontable::renderRHandsontable({
@@ -405,79 +307,62 @@ server <- function(input, output, session) {
                                                                                      "Becsült napi esetszám"), readOnly = TRUE)
   })
   
+  dataInputGr <- reactive({
+    predData(RawData, input$grDistr, 95, input$grWindow)
+  })
+  
   output$grGraph <- renderPlot({
-    res <- data.frame(R = lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = RawData[CaseNumber!=0],
-                                               subset = NumDate>=(input$windowGrGraph[1]-1)&
-                                                 NumDate<=(input$windowGrGraph[2]-1)), input$SImuGrGraph, input$SImuGrGraph))
-    ggplot(res,aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
+    ggplot(grData(dataInputGr()$m, input$grSImu, input$grSIsd), aes(R)) + geom_density() + labs(y = "") +
+      geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
   })
   
   output$grTab <- rhandsontable::renderRHandsontable({
-    res <- summary(lm2R0gamma_sample(lm(log(CaseNumber) ~ NumDate, data = RawData[CaseNumber!=0],
-                                        subset = NumDate>=(input$windowGrTab[1]-1)&NumDate<=(input$windowGrTab[2]-1)),
-                                     input$SImuGrTab, input$SImuGrTab))
-    rhandsontable::rhandsontable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag",
-                                                          "Felső kvartilis", "Maximum"),
-                                            `Érték` = as.numeric(res)), readOnly = TRUE)
+    rhandsontable::rhandsontable(data.table(
+      `Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum"),
+      `Érték` = as.numeric(summary(grData(dataInputGr()$m, input$grSImu, input$grSIsd)$R))), readOnly = TRUE)
+  })
+  
+  dataInputGrSw <- reactive({
+    lapply( 1:(nrow(RawData)-input$grSwWindowlen+1),
+            function(i) predData(RawData[i:(i+input$grSwWindowlen-1)], input$grSwDistr, 95, input$grSwWindow)$m )
   })
   
   output$grSwGraph <- renderPlot({
-    res <- zoo::rollapply(RawData$CaseNumber, input$windowLenGrSwGraph, function(cn)
-      lm2R0gamma_sample(lm(log(cn[cn!=0]) ~ I(1:input$windowLenGrSwGraph)[cn!=0]), input$SImuGrSwGraph, input$SIsdGrSwGraph))
-    res <- data.table(do.call(rbind, lapply(1:nrow(res), function(i)
-      c( mean(res[i,], na.rm = TRUE), quantile(res[i,], c(0.025, 0.975), na.rm = TRUE)))), check.names = TRUE)
-    res$Date <- RawData$Date[input$windowLenGrSwGraph:nrow(RawData)]
-    ggplot(res,aes(x = Date)) + geom_line(aes(y = V1), col = "blue") +
-      geom_ribbon(aes(ymin = X2.5., ymax = X97.5.), fill = "blue", alpha = 0.2) + geom_hline(yintercept = 1, color = "red") +
-      labs(x = "Dátum", y = "R") + expand_limits(y = 1)
+    ggplot(grSwData(RawData, dataInputGrSw(), input$grSwSImu, input$grSwSIsd,input$grSwWindowlen), aes(x = Date)) +
+      geom_line(aes(y = V1), col = "blue") + geom_ribbon(aes(ymin = X2.5., ymax = X97.5.), fill = "blue", alpha = 0.2) +
+      geom_hline(yintercept = 1, color = "red") + labs(x = "Dátum", y = "R") + expand_limits(y = 1)
   })
   
   output$grSwTab <- rhandsontable::renderRHandsontable({
-    res <- zoo::rollapply(RawData$CaseNumber, input$windowLenGrSwTab, function(cn)
-      lm2R0gamma_sample(lm(log(cn[cn!=0]) ~ I(1:input$windowLenGrSwTab)[cn!=0]), input$SImuGrSwTab, input$SImuGrSwTab))
-    res <- data.table(do.call(rbind, lapply(1:nrow(res), function(i)
-      c( mean(res[i,], na.rm = TRUE), quantile(res[i,], c(0.025, 0.975), na.rm = TRUE)))), check.names = TRUE)
-    res$Date <- RawData$Date[input$windowLenGrSwTab:nrow(RawData)]
-    rhandsontable::rhandsontable(round_dt(res)[, .(`Dátum` = Date, `R (95%-os CI)` = paste0(V1, " (", X2.5., "-", X97.5., ")"))],
-                                 readOnly = TRUE)
+    rhandsontable::rhandsontable(round_dt(grSwData(
+      RawData, dataInputGrSw(), input$grSwSImu, input$grSwSIsd, input$grSwWindowlen))[
+        , .(`Dátum` = Date, `R (95%-os CI)` = paste0(V1, " (", X2.5., "-", X97.5., ")"))], readOnly = TRUE)
   })
   
   output$branchGraph <- renderPlot({
-    res <- data.table(R = EpiEstim::sample_posterior_R(EpiEstim::estimate_R(
-      RawData$CaseNumber, method = "parametric_si",
-      config = EpiEstim::make_config(list(mean_si = input$SImuBranchGraph, std_si = input$SIsdBranchGraph,
-                                          t_start = input$windowBranchGraph[1], t_end = input$windowBranchGraph[2])))))
-    ggplot(res,aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
+    ggplot(branchData(RawData, input$branchSImu, input$branchSIsd, input$branchWindow), aes(R)) + geom_density() + labs(y = "") +
+      geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
   })
   
   output$branchTab <- rhandsontable::renderRHandsontable({
-    res <- summary(EpiEstim::sample_posterior_R(EpiEstim::estimate_R(
-      RawData$CaseNumber, method = "parametric_si",
-      config = EpiEstim::make_config(list(mean_si = input$SImuBranchTab, std_si = input$SIsdBranchTab,
-                                          t_start = input$windowBranchTab[1], t_end = input$windowBranchTab[2])))))
-    rhandsontable::rhandsontable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag",
-                                                          "Felső kvartilis", "Maximum" ),
-                                            `Érték` = as.numeric(res)), readOnly = TRUE)
+    rhandsontable::rhandsontable(data.table(
+      `Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum" ),
+      `Érték` = as.numeric(summary(branchData(RawData, input$branchSImu, input$branchSIsd, input$branchWindow)$R))),
+      readOnly = TRUE)
   })
   
   output$branchSwGraph <- renderPlot({
-    res <- EpiEstim::estimate_R(RawData$CaseNumber, method = "parametric_si",
-                                config = EpiEstim::make_config(list(mean_si = input$SImuBranchGraph,
-                                                                    std_si = input$SIsdBranchGraph)))$R
-    res$Date <- RawData$Date[(input$windowLenGrSwGraph+1):nrow(RawData)]
-    ggplot(res,aes(x = Date)) + geom_line(aes(y = `Mean(R)`), col = "blue") +
+    ggplot(branchSwData(RawData, input$branchSwSImu, input$branchSwSIsd, input$branchSwWindowlen), aes(x = Date)) +
+      geom_line(aes(y = `Mean(R)`), col = "blue") +
       geom_ribbon(aes(ymin = `Quantile.0.025(R)`, ymax = `Quantile.0.975(R)`), fill = "blue", alpha = 0.2) +
       geom_hline(yintercept = 1, color = "red") + labs(x = "Dátum", y = "R") + expand_limits(y = 1)
   })
   
   output$branchSwTab <- rhandsontable::renderRHandsontable({
-    res <- EpiEstim::estimate_R(RawData$CaseNumber, method = "parametric_si",
-                                config = EpiEstim::make_config(list(mean_si = input$SImuBranchGraph,
-                                                                    std_si = input$SIsdBranchGraph)))$R
-    res$Date <- RawData$Date[(input$windowLenGrSwGraph+1):nrow(RawData)]
-    rhandsontable::rhandsontable(round_dt(res)[, .(`Dátum` = Date,
-                                                   `R (95%-os CrI)` = paste0(`Mean(R)`, " (",`Quantile.0.025(R)`, "-",
-                                                                             `Quantile.0.975(R)`, ")"))], readOnly = TRUE)
+    rhandsontable::rhandsontable(round_dt(branchSwData(
+      RawData, input$branchSwSImu, input$branchSwSIsd, input$branchSwWindowlen))[
+        , .(`Dátum` = Date, `R (95%-os CrI)` = paste0(`Mean(R)`, " (",`Quantile.0.025(R)`, "-", `Quantile.0.975(R)`, ")"))],
+      readOnly = TRUE)
   })
   
   output$report <- downloadHandler(
@@ -488,7 +373,7 @@ server <- function(input, output, session) {
       tempRawData <- file.path(td, "RawData.dat")
       file.copy("report.Rmd", tempReport, overwrite = TRUE)
       file.copy("RawData.dat", tempRawData, overwrite = TRUE)
-      params <- list(ciconfReport = input$ciconfReport, SImuReport = input$SImuReport, SIsdReport = input$SIsdReport)
+      params <- list(reportConf = input$reportConf, reportSImu = input$reportSImu, reportSIsd = input$reportSIsd)
       rmarkdown::render(tempReport, output_file = file, params = params, envir = new.env(parent = globalenv()))
     }
   )
