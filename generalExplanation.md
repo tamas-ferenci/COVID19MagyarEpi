@@ -1,6 +1,6 @@
 ## Három fontos megjegyzés elöljáróban
 
-1. Ezt a projektet hobbiként, szabadidőmben, mindenféle hivatalos támogatás nélkül, kizárólag nyilvánosan elérhető információforrásokra támaszkodva végzem. Ebből adódóan az eredmények nem tekinthetőek semmilyen szerv hivatalos álláspontjának, valamint -- bár természetesen igyekeztem a lehető legjobb tudásom szerint eljárni -- a helyességére sincs hivatalos pecsét.
+1. Ezt a projektet hobbiként, kizárólag nyilvánosan elérhető információforrásokra támaszkodva végzem. Ebből adódóan az eredmények nem tekinthetőek semmilyen szerv hivatalos álláspontjának, valamint -- bár természetesen igyekeztem a lehető legjobb tudásom szerint eljárni -- a helyességére sincs hivatalos pecsét.
 
 2. Ennek közvetlen folyományaként: minden észrevételt, megjegyzést, dicséretet, kritikát, javaslatot a lehető legnagyobb örömmel veszek! (És, amennyiben lehet, igyekszem felhasználni a továbbfejlesztéshez.) Email-címem: <ferenci.tamas@nik.uni-obuda.hu>. Ha valaki jártas ebben, akkor bátran nyisson a Github-on issue-t. A felhasznált adatbázist, valamint az elemzést végző szkripteket teljes terjedelmükben nyilvánosságra hoztam (lásd a fejlécben lévő linket).
 
@@ -21,6 +21,12 @@ Az immár Magyarországot is elért koronavírus-járvány sajnálatosan jó alk
 E módszerek kapcsán egyre fontosabb kérdést jelent a számítási háttér is. Szerencsére a technika fejlődése lehetővé teszi, hogy a szükséges számításokat gyakorlatilag folyamatosan, valós időben futtassuk.
 
 Bár a konkrét cél a koronavírus-járványra adott válasz támogatása, valójában a kifejlesztett kódom bármilyen más járványnál is felhasználható, csak az esetszámokat kell kicserélni. Éppen ezért azt remélem, hogy az itt leírt ismeretek, illetve ez keretrendszer később is fogja tudni támogatni a magyar járványügyiseket.
+
+## Adatok forrása
+
+Az adatokat egyelőre kézzel gépelem be az NNK adatközlései alapján, naponta.
+
+(Személyes megjegyzés zárójelben: egy szégyen az országnak, hogy miközben a macedón (macedón!) közegészségügy [ilyet](https://gdi-sk.maps.arcgis.com/apps/opsdashboard/index.html#/2096bd4b051b42948ac3f5747e80c3a5) működtet (most a sportszerűség kedvéért a nyugati példákat nem is idézem...), addig Magyarországon oda nem sikerült eljutni, így a járvány harmadik hetére, hogy egy életkori, vagy nemi bontás nyilvánosan elérhető legyen. De még a napi esetszámot is kézzel kell kivonni az egyedül közölt kumulált számból, és átpötyögni egy táblázatba. Mindezt 2020-ban. Szerintem ez így szegénységi bizonyítvány az egész magyar népegészségügyre nézve. Mert ez tényleg szándék kérdése, ne mondja nekem senki, hogy akkora erőforrásigénye lenne kirakni egy Excel-táblát napi esetszámmal és életkori/nemi bontással.)
 
 ## Mik a fontos eredmények?
 

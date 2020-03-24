@@ -33,7 +33,9 @@ epicurvePlot(predData(RawData, "Poisson", params$reportConf)$pred, TRUE, TRUE, T
 
 `r grText(predData(RawData, "Poisson", params$reportConf)$m)`
 
-# Előrejelzés (empirikus)
+# Előrejelzések
+
+## Empirikus (rövid távú)
 
 Grafikus előrejelzés a következő hétre:
 
@@ -46,7 +48,8 @@ Számszerű előrejelzések a következő hétre:
 ```{r}
 res <- round_dt(predData(RawData, "Poisson", params$reportConf, NA, 7)$pred)
 res$Pred <-  paste0(res$fit, " (", res$lwr, "-", res$upr, ")")
-knitr::kable(res[, .(`Dátum` = Date, `Esetszám [fő]` = CaseNumber, `Becsült esetszám (95%-os CI) [fő]` = Pred)])
+knitr::kable(res[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
+                     `Becsült napi esetszám (95%-os CI) [fő/nap]` = Pred)])
 ```
 
 # Számításhoz használt feltevések

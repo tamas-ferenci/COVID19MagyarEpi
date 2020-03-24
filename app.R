@@ -5,6 +5,18 @@ library(data.table)
 RawData <- readRDS("RawData.dat")
 
 source("EpiHelpers.R", encoding = "UTF-8")
+source("SeirModel.R", encoding = "UTF-8")
+measSIR <- pomp::pomp(as.data.frame(RawData),
+                      times = "NumDate", t0 = 0,
+                      rprocess=pomp::euler(seir_step,delta.t=1/7),
+                      rinit=seir_init,
+                      rmeasure=rmeas,
+                      dmeasure=dmeas,
+                      accumvars="H",
+                      partrans=pomp::parameter_trans(log=c("alpha", "Beta","gamma"),logit=c("rho")),
+                      statenames=c("S", "E1", "E2", "I1", "I2", "I3","R","H"),
+                      paramnames=c("N", "alpha", "Beta", "gamma", "rho"))
+mle <- read.csv2("mle.csv")
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -79,7 +91,8 @@ ui <- fluidPage(
                                                     conditionalPanel("input.epicurveExpfit==1",
                                                                      radioButtons("epicurveDistr", "Eloszlás:",
                                                                                   c( "Lognormális", "Poisson",
-                                                                                     "Negatív binomiális"))),
+                                                                                     "Negatív binomiális"),
+                                                                                  selected = "Poisson")),
                                                     conditionalPanel("input.epicurveExpfit==1|input.epicurveLoessfit==1",
                                                                      checkboxInput("epicurveCi",
                                                                                    "Konfidenciaintervallum megjelenítése")),
@@ -102,7 +115,7 @@ ui <- fluidPage(
     tabPanel("Előrejelzések",
              fluidPage(
                tabsetPanel(
-                 tabPanel("Empirikus",
+                 tabPanel("Empirikus (rövid távú)",
                           conditionalPanel("input.projempType=='Grafikon'", plotOutput("projempGraph")),
                           conditionalPanel("input.projempType=='Táblázat'", rhandsontable::rHandsontableOutput("projempTab")),
                           textOutput("projempGraphText"),
@@ -119,7 +132,8 @@ ui <- fluidPage(
                             ),
                             column(3,
                                    h4("Görbeillesztés paraméterei"),
-                                   radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális")),
+                                   radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális"),
+                                                selected = "Poisson"),
                                    sliderInput("projempWindow", "Ablakozás", 1, nrow(RawData), c(1, nrow(RawData)), 1)
                             ),
                             column(3,
@@ -127,6 +141,27 @@ ui <- fluidPage(
                                                                                           "Szcenárióelemzés (növekedési ráta)")),
                                    conditionalPanel("input.projempFuture=='Szcenárióelemzés (növekedési ráta)'",
                                                     numericInput("projempDeltar", "Növekedési ráta eltérítése", 0, -2, 2, 0.01))
+                            )
+                          )
+                 ),
+                 tabPanel("Kompartment-modell (hosszú távú)",
+                          conditionalPanel("input.projcompType=='Grafikon'", plotOutput("projcompGraph")),
+                          conditionalPanel("input.projcompType=='Táblázat'", rhandsontable::rHandsontableOutput("projcompTab")),
+                          #textOutput("projcompText"),
+                          hr(),
+                          fluidRow(
+                            column(3,
+                                   radioButtons("projcompType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   dateInput("projcompEnd", "Előrevetítés vége", "2020-07-01", max(RawData$Date)+1,
+                                             min(RawData$Date)+200)
+                            ),
+                            column(3,
+                                   radioButtons("projcompFuture", "Jövőbeli növekedés:", c("Tényadat","Szcenárióelemzés")),
+                                   conditionalPanel("input.projcompFuture=='Szcenárióelemzés'",
+                                                    numericInput("projcompIncub", "Inkubációs idő [nap]", 5, 0, 20, 0.1),
+                                                    numericInput("projcompInfect", "Fertőzőképesség hossza [nap]",
+                                                                 3, 0, 20, 0.1),
+                                                    numericInput("projcompReprnum", "Reprodukciós szám", 2, 0, 5, 0.1))
                             )
                           )
                  ),
@@ -148,7 +183,8 @@ ui <- fluidPage(
                             column(3, radioButtons("grType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
                                    h4("Görbeillesztés paraméterei"),
-                                   radioButtons("grDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális")),
+                                   radioButtons("grDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális"),
+                                                selected = "Poisson"),
                                    sliderInput("grWindow", "Ablakozás:", 1, nrow(RawData), c(1, nrow(RawData)), 1)
                             ),
                             column(3,
@@ -224,26 +260,26 @@ ui <- fluidPage(
                )
              )
     ),
-    tabPanel("S(E)IR modellek",
-             fluidPage(
-               tabsetPanel(
-                 tabPanel("Grafikon",
-                          h4("TODO")
-                          # h4("Az egész görbe alapján számolt R, és a becslés bizonytalanságát jellemző eloszlása:"),
-                          # plotOutput("branchFullGraph"),
-                          # hr(),
-                          # fluidRow(
-                          #   column(3,
-                          #          numericInput("SImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                          #          numericInput("SIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
-                          #   )
-                          # )
-                 )#, 
-                 #tabPanel("Számszerű adatok", rhandsontable::rHandsontableOutput("projTab")), 
-                 #tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveExplanation.md")))
-               )
-             )
-    ),
+    # tabPanel("S(E)IR modellek",
+    #          fluidPage(
+    #            tabsetPanel(
+    #              tabPanel("Grafikon",
+    #                       h4("TODO")
+    #                       # h4("Az egész görbe alapján számolt R, és a becslés bizonytalanságát jellemző eloszlása:"),
+    #                       # plotOutput("branchFullGraph"),
+    #                       # hr(),
+    #                       # fluidRow(
+    #                       #   column(3,
+    #                       #          numericInput("SImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
+    #                       #          numericInput("SIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
+    #                       #   )
+    #                       # )
+    #              )#, 
+    #              #tabPanel("Számszerű adatok", rhandsontable::rHandsontableOutput("projTab")), 
+    #              #tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveExplanation.md")))
+    #            )
+    #          )
+    # ),
     tabPanel("Automatikus jelentésgenerálás",
              numericInput("reportConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1),
              numericInput("reportSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
@@ -251,7 +287,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.11" ),
+  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.12" ),
   
   tags$script( HTML( "var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -304,7 +340,8 @@ server <- function(input, output, session) {
     rhandsontable::rhandsontable(pred2, colHeaders = c( "Dátum", "Napi esetszám [fő/nap]",
                                                         if(input$projempCi) paste0("Becsült napi esetszám (", input$projempConf,
                                                                                    "%-os CI) [fő/nap]") else
-                                                                                     "Becsült napi esetszám"), readOnly = TRUE)
+                                                                                     "Becsült napi esetszám [fő/nap]"),
+                                 readOnly = TRUE)
   })
   
   dataInputGr <- reactive({
@@ -365,14 +402,49 @@ server <- function(input, output, session) {
       readOnly = TRUE)
   })
   
+  dataInputProjcomp <- reactive({
+    pars <- if(input$projcompFuture=="Tényadat") mle else c(mle["N"], mle["rho"], alpha = 1/input$projcompIncub,
+                                                            Beta = input$projcompReprnum/input$projcompInfect,
+                                                            gamma = 1/input$projcompInfect)
+    sims <- data.table(pomp::simulate(measSIR, params = pars, nsim = 500, include.data = TRUE,
+                                      format = "data.frame", times = 0:200))
+    sims$Date <- min(RawData$Date) + sims$NumDate
+    rbind(sims, sims[.id!="data", .(.id = "CI", med = median(CaseNumber), lwr = quantile(CaseNumber, 0.025),
+                                    upr = quantile(CaseNumber, 0.975)) , .(Date)], fill = TRUE)
+  })
+  
+  output$projcompGraph <- renderPlot({
+    sims <- dataInputProjcomp()
+    ggplot(sims, aes(x = Date,y = CaseNumber/1e3, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
+      geom_line(data = subset(sims, .id<=100), alpha = 0.3) + theme_bw() +
+      geom_ribbon(data = subset(sims, .id=="CI"), aes(y = med/1e3, ymin = lwr/1e3, ymax = upr/1e3), alpha = 0.2) +
+      geom_line(data = subset(sims, .id=="CI"), aes(y = med/1e3), size = 1.2, alpha = 1) +
+      geom_point(data = subset(sims, .id=="data"), size = 3, color = "black")  +
+      labs(x = "Dátum", y = "Napi esetszám [ezer fő/nap]") + guides(color = FALSE, fill = FALSE) +
+      coord_cartesian(xlim = c.Date(NA, input$projcompEnd),
+                      ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber/1e3, na.rm = TRUE)))
+  })
+  
+  output$projcompTab <- rhandsontable::renderRHandsontable({
+    sims <- dataInputProjcomp()[.id=="CI",c("Date", "med", "lwr", "upr")]
+    sims$med <- round(sims$med/1e3, 1)
+    sims$lwr <- round(sims$lwr/1e3, 1)
+    sims$upr <- round(sims$upr/1e3, 1)
+    sims$Pred <- paste0(sims$med, " (", sims$lwr, "-", sims$upr, ")")
+    rhandsontable::rhandsontable(sims[, c("Date", "Pred")],
+                                 colHeaders = c("Dátum", "Becsült napi esetszám (95%-os CI) [ezer fő/nap]"), readOnly = TRUE)
+  })
+  
   output$report <- downloadHandler(
     filename <- paste0("JarvanyugyiJelentes_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf" ),
     content = function(file) {
       td <- tempdir()
       tempReport <- file.path(td, "report.Rmd")
       tempRawData <- file.path(td, "RawData.dat")
+      tempEpiHelpers <- file.path(td, "EpiHelpers.R")
       file.copy("report.Rmd", tempReport, overwrite = TRUE)
       file.copy("RawData.dat", tempRawData, overwrite = TRUE)
+      file.copy("EpiHelpers.R", tempEpiHelpers, overwrite = TRUE)
       params <- list(reportConf = input$reportConf, reportSImu = input$reportSImu, reportSIsd = input$reportSIsd)
       rmarkdown::render(tempReport, output_file = file, params = params, envir = new.env(parent = globalenv()))
     }

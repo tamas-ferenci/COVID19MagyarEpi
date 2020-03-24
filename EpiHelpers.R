@@ -1,5 +1,5 @@
 predData <- function(rd, distr, level, wind = NA, projper = 0, deltar = NA) {
-  if(is.na(wind)) wind <- c(rd$NumDate[1]+1, tail(rd$NumDate,1)+1)
+  if(is.na(wind[1])) wind <- c(rd$NumDate[1]+1, tail(rd$NumDate,1)+1)
   if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
                                            CaseNumber = NA, NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
   rd$Predicted <- is.na(rd$CaseNumber)

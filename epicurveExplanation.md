@@ -1,7 +1,3 @@
-## Adatok forrása
-
-Az adatokat egyelőre kézzel gépelem be az NNK adatközlései alapján, naponta. Remélem ez csak átmeneti helyzet addig, amíg normális formátumban elérhető (=gépi úton feldolgozható, napi bontású) hazai adatközlés nem jön létre.
-
 ## Alapgondolat
 
 Járványok során gyakran elhangzik a köznyelvben is, hogy "exponenciálisan nő a betegek száma". Ez nem csak köznyelvi szófordulat, hanem matematikailag is pontos megfogalmazás. Sokszor előfordul (például a járvány kezdeti fázisában, ha a betegség ellen nincs védőoltás, korábban nem estek át rajta sokan), hogy a betegek szinte csupa fogékony emberrel kerülnek kapcsolatba, így a betegség terjedését egyetlen egy dolog korlátozza: az, hogy hány beteg van. Amíg még kevés, addig a betegek száma is lassabban nő, de minél több beteg van, annál jobban nő a megbetegedések számának növekedési *üteme* is. Ez matematikailag az exponenciális függvény, melynek jellemzője épp ez: hogy minél nagyobb az értéke, annál gyorsabban nő.

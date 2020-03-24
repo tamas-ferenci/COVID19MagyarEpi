@@ -1,7 +1,7 @@
 library(data.table)
 
-RawData <- data.table(Date=seq.Date(as.Date("2020-03-04"),as.Date("2020-03-21"),by="days"),
-                       CaseNumber=c(3,0,2,2,2,3,1,3,3,6,7,7,11,8,15,12,18,28))
+RawData <- data.table(Date=seq.Date(as.Date("2020-03-04"),as.Date("2020-03-22"),by="days"),
+                       CaseNumber=c(3,0,2,2,2,3,1,3,3,6,7,7,11,8,15,12,18,28,36))
 
 # tmp <- tempfile(fileext = ".xlsx")
 # download.file(url = paste0("https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-",
