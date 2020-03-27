@@ -48,6 +48,7 @@ Számszerű előrejelzések a következő hétre:
 ```{r}
 res <- round_dt(predData(RawData, "Poisson", params$reportConf, NA, 7)$pred)
 res$Pred <-  paste0(res$fit, " (", res$lwr, "-", res$upr, ")")
+res <- res[!duplicated(Date)]
 knitr::kable(res[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
                      `Becsült napi esetszám (95%-os CI) [fő/nap]` = Pred)])
 ```
@@ -71,7 +72,7 @@ ggplot(resGr, aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 
 Számszerű adatok:
 
 ```{r}
-knitr::kable(data.table( `Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum"),
+knitr::kable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum"),
                          `Érték` = as.numeric(summary(resGr$R))))
 ```
 

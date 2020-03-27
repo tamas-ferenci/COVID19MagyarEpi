@@ -8,14 +8,14 @@ source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
 measSIR <- pomp::pomp(as.data.frame(RawData),
                       times = "NumDate", t0 = 0,
-                      rprocess=pomp::euler(seir_step,delta.t=1/7),
-                      rinit=seir_init,
-                      rmeasure=rmeas,
-                      dmeasure=dmeas,
-                      accumvars="H",
-                      partrans=pomp::parameter_trans(log=c("alpha", "Beta","gamma"),logit=c("rho")),
-                      statenames=c("S", "E1", "E2", "I1", "I2", "I3","R","H"),
-                      paramnames=c("N", "alpha", "Beta", "gamma", "rho"))
+                      rprocess = pomp::euler(seir_step, delta.t = 1/7),
+                      rinit = seir_init,
+                      rmeasure = rmeas,
+                      dmeasure = dmeas,
+                      accumvars = "H",
+                      partrans = pomp::parameter_trans(log=c("alpha", "Beta","gamma"),logit=c("rho")),
+                      statenames = c("S", "E1", "E2", "I1", "I2", "I3","R","H"),
+                      paramnames = c("N", "alpha", "Beta", "gamma", "rho"))
 mle <- read.csv2("mle.csv")
 
 ui <- fluidPage(
@@ -260,26 +260,43 @@ ui <- fluidPage(
                )
              )
     ),
-    # tabPanel("S(E)IR modellek",
-    #          fluidPage(
-    #            tabsetPanel(
-    #              tabPanel("Grafikon",
-    #                       h4("TODO")
-    #                       # h4("Az egész görbe alapján számolt R, és a becslés bizonytalanságát jellemző eloszlása:"),
-    #                       # plotOutput("branchFullGraph"),
-    #                       # hr(),
-    #                       # fluidRow(
-    #                       #   column(3,
-    #                       #          numericInput("SImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-    #                       #          numericInput("SIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
-    #                       #   )
-    #                       # )
-    #              )#, 
-    #              #tabPanel("Számszerű adatok", rhandsontable::rHandsontableOutput("projTab")), 
-    #              #tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveExplanation.md")))
-    #            )
-    #          )
-    # ),
+    tabPanel("Halálozási arány és aluldetektálás",
+             fluidPage(
+               tabsetPanel(
+                 tabPanel("Nyers és korrigált halálozási arány",
+                          conditionalPanel("input.cfrType=='Grafikon'", plotOutput("cfrGraph")),
+                          conditionalPanel("input.cfrType=='Táblázat'", rhandsontable::rHandsontableOutput("cfrTab")),
+                          hr(),
+                          fluidRow(
+                            column(3,
+                                   radioButtons("cfrType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   checkboxInput("cfrCi", "Konfidenciaintervallum megjelenítése"),
+                                   conditionalPanel("input.cfrCi==1",
+                                                    numericInput("cfrConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
+                            ),
+                            column(5,
+                                   numericInput("cfrHDTmu", "A hospitalizáció-halál idő várható értéke:", 13, 0.1, 20, 0.1),
+                                   numericInput("cfrHDTsd", "A hospitalizáció-halál idő szórása:", 12.7, 0.1, 20, 0.1)
+                            )
+                          )
+                 ),
+                 tabPanel("Aluldetektálás",
+                          textOutput("cfrUnderdetText"),
+                          rhandsontable::rHandsontableOutput("cfrUnderdetTab"),
+                          hr(),
+                          column(3,
+                                 numericInput("cfrUnderdetBench", "Benchmark halálozási arány", 1.38, 0, 100, 0.01)
+                          ),
+                          column(5,
+                                 numericInput("cfrUnderdetHDTmu", "A hospitalizáció-halál idő várható értéke:",
+                                              13, 0.1, 20, 0.1),
+                                 numericInput("cfrUnderdetHDTsd", "A hospitalizáció-halál idő szórása:", 12.7, 0.1, 20, 0.1)
+                          )
+                 ),
+                 tabPanel("Magyarázat", withMathJax(includeMarkdown("cfrExplanation.md")))
+               )
+             )
+    ),
     tabPanel("Automatikus jelentésgenerálás",
              numericInput("reportConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1),
              numericInput("reportSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
@@ -287,9 +304,9 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.12" ),
+  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.13" ),
   
-  tags$script( HTML( "var sc_project=11601191; 
+  tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
                       var sc_security=\"5a06c22d\";
                       var scJsHost = ((\"https:\" == document.location.protocol) ?
@@ -297,7 +314,7 @@ ui <- fluidPage(
                       document.write(\"<sc\"+\"ript type='text/javascript' src='\" +
                       scJsHost+
                       \"statcounter.com/counter/counter.js'></\"+\"script>\");" ),
-               type = "text/javascript" )
+              type = "text/javascript")
 )
 
 server <- function(input, output, session) {
@@ -337,10 +354,11 @@ server <- function(input, output, session) {
     pred <- round_dt(dataInputProjemp()$pred)
     pred2 <- pred[, c("Date", "CaseNumber")]
     pred2$Pred <- if(input$projempCi) paste0(pred$fit, " (", pred$lwr, "-", pred$upr, ")") else pred$fit
-    rhandsontable::rhandsontable(pred2, colHeaders = c( "Dátum", "Napi esetszám [fő/nap]",
-                                                        if(input$projempCi) paste0("Becsült napi esetszám (", input$projempConf,
-                                                                                   "%-os CI) [fő/nap]") else
-                                                                                     "Becsült napi esetszám [fő/nap]"),
+    pred2 <- pred2[!duplicated(Date)]
+    rhandsontable::rhandsontable(pred2, colHeaders = c("Dátum", "Napi esetszám [fő/nap]",
+                                                       if(input$projempCi) paste0("Becsült napi esetszám (", input$projempConf,
+                                                                                  "%-os CI) [fő/nap]") else
+                                                                                    "Becsült napi esetszám [fő/nap]"),
                                  readOnly = TRUE)
   })
   
@@ -360,8 +378,8 @@ server <- function(input, output, session) {
   })
   
   dataInputGrSw <- reactive({
-    lapply( 1:(nrow(RawData)-input$grSwWindowlen+1),
-            function(i) predData(RawData[i:(i+input$grSwWindowlen-1)], input$grSwDistr, 95, input$grSwWindow)$m )
+    lapply(1:(nrow(RawData)-input$grSwWindowlen+1),
+           function(i) predData(RawData[i:(i+input$grSwWindowlen-1)], input$grSwDistr, 95, input$grSwWindow)$m )
   })
   
   output$grSwGraph <- renderPlot({
@@ -416,9 +434,10 @@ server <- function(input, output, session) {
   output$projcompGraph <- renderPlot({
     sims <- dataInputProjcomp()
     ggplot(sims, aes(x = Date,y = CaseNumber/1e3, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
-      geom_line(data = subset(sims, .id<=100), alpha = 0.3) + theme_bw() +
-      geom_ribbon(data = subset(sims, .id=="CI"), aes(y = med/1e3, ymin = lwr/1e3, ymax = upr/1e3), alpha = 0.2) +
-      geom_line(data = subset(sims, .id=="CI"), aes(y = med/1e3), size = 1.2, alpha = 1) +
+      geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
+      geom_ribbon(data = subset(sims, .id=="CI"), aes(y = med/1e3, ymin = lwr/1e3,
+                                                      ymax = upr/1e3, fill = "blue", color = "blue", alpha = 0.3)) +
+      geom_line(data = subset(sims, .id=="CI"), aes(y = med/1e3, color = "blue", alpha = 1), size = 1.2) +
       geom_point(data = subset(sims, .id=="data"), size = 3, color = "black")  +
       labs(x = "Dátum", y = "Napi esetszám [ezer fő/nap]") + guides(color = FALSE, fill = FALSE) +
       coord_cartesian(xlim = c.Date(NA, input$projcompEnd),
@@ -433,6 +452,54 @@ server <- function(input, output, session) {
     sims$Pred <- paste0(sims$med, " (", sims$lwr, "-", sims$upr, ")")
     rhandsontable::rhandsontable(sims[, c("Date", "Pred")],
                                  colHeaders = c("Dátum", "Becsült napi esetszám (95%-os CI) [ezer fő/nap]"), readOnly = TRUE)
+  })
+  
+  output$cfrGraph <- renderPlot({
+    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf)
+    ggplot(res, aes(x = Date, y = value*100, group = `Típus`, color = `Típus`)) + geom_point() + geom_line() +
+      {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100, alpha=0.2, color = `Típus`, fill = `Típus`))} +
+      coord_cartesian(ylim = c(NA, max(res[value>0]$upr*100))) + guides(alpha = FALSE) +
+      labs(x = "Dátum", y = "Halálozási arány [%]")
+  })
+  
+  output$cfrTab <- rhandsontable::renderRHandsontable({
+    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf)
+    res$lwr <- res$lwr*100
+    res$value <- res$value*100
+    res$upr <- res$upr*100
+    res <- dcast(round_dt(res), Date ~ `Típus`, value.var = c("lwr", "value", "upr"))
+    res$Crude <- if(input$cfrCi) ifelse(!is.na(res$value_Nyers),
+                                        paste0(res$value_Nyers, " (", res$lwr_Nyers, "-", res$upr_Nyers, ")"), NA) else
+                                          res$value_Nyers
+    res$Corrected <- if(input$cfrCi) ifelse(!is.na(res$`value_Korrigált`), paste0(res$`value_Korrigált`, " (",
+                                                                                  res$`lwr_Korrigált`, "-", res$`upr_Korrigált`,
+                                                                                  ")"), NA) else res$`value_Korrigált`
+    rhandsontable::rhandsontable(res[, .(Date, Crude, Corrected)],
+                                 colHeaders = c("Dátum",
+                                                if(input$cfrCi) paste0("Nyers halálozási arány (", input$cfrConf,
+                                                                       "%-os CI) [%]") else
+                                                                         "Nyers halálozási arány [%]",
+                                                if(input$cfrCi) paste0("Korrigált halálozási arány (", input$cfrConf,
+                                                                       "%-os CI) [fő]") else
+                                                                         "Korrigált halálozási arány [%]"),
+                                 readOnly = TRUE)
+  })
+  
+  output$cfrUnderdetTab <- rhandsontable::renderRHandsontable({
+    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95)
+    rhandsontable::rhandsontable(RawData[,.(Date,CumCaseNumber,
+                                            CumCaseNumber*tail(res[`Típus`=="Korrigált"]$value,1)/input$cfrUnderdetBench*100)],
+                                 colHeaders = c("Dátum", "Jelentett kumulált esetszám [fő]", "Korrigált kumulált esetszám [fő]"),
+                                 readOnly = TRUE)
+  })
+  
+  output$cfrUnderdetText <- renderText({
+    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95)
+    paste0("Az utolsó korrigált halálozás a hospitalizáció-halál idő megadott paramétereivel ",
+           round(tail(res[`Típus`=="Korrigált"]$value,1)*100,1), "%. Ez a megadott ", input$cfrUnderdetBench, "%-os ",
+           "benchmark halálozási arányt figyelembe véve ",
+           round(tail(res[`Típus`=="Korrigált"]$value,1)/input$cfrUnderdetBench*100,1),
+           "-szoros valódi esetszámot feltételez a jelentetthez képest.")
   })
   
   output$report <- downloadHandler(

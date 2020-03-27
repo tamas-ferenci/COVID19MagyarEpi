@@ -9,3 +9,13 @@ TODO
 Ez a módszer a talán legkézenfekvőbb: a tényadatokra illesztett görbét (lásd a Járványgörbe pontnál!) egyszerűen "meghosszabbítjuk". Statisztikailag precízebben szólva: ha megvan a modellünk -- melyet a jelenlegi és múltbeli dátumok adatai alapján becsültünk --, lekérjük a becsléseit jövőbeli dátumokra is.
 
 TODO
+
+### Kompartment modell
+
+Itt
+
+```{r,engine='tikz', fig.ext='svg',fig.width=3}
+\begin{tikzpicture}
+ \draw (0,0) circle (2cm);
+\end{tikzpicture}
+```

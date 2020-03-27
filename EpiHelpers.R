@@ -1,7 +1,8 @@
 predData <- function(rd, distr, level, wind = NA, projper = 0, deltar = NA) {
-  if(is.na(wind[1])) wind <- c(rd$NumDate[1]+1, tail(rd$NumDate,1)+1)
+  if(any(is.na(wind))) wind <- c(rd$NumDate[1]+1, tail(rd$NumDate,1)+1)
   if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
-                                           CaseNumber = NA, NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
+                                           CaseNumber = NA, DeathNumber = NA, CumCaseNumber = NA, CumDeathNumber = NA,
+                                           NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
   rd$Predicted <- is.na(rd$CaseNumber)
   crit.value <- qt(1-(1-level/100)/2, df = sum(!rd$Predicted)-2)
   if(distr=="Lognormális") {
@@ -77,4 +78,27 @@ branchSwData <- function(rd, SImu, SIsd, windowlen) {
                                 mean_si = SImu, std_si = SIsd)))$R
   res$Date <- rd$Date[(windowlen+1):nrow(rd)]
   res
+}
+
+cfrData <- function(rd, HDTmu, HDTsd, conf) {
+  res <- data.table(t(mapply(function(...) with(binom.test(...), c(estimate, conf.int)),
+                             rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf/100))))
+  names(res) <- c("value", "lwr", "upr")
+  res$`Típus` <- "Nyers"
+  res$Date <- rd$Date
+  discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(HDTmu)-log(HDTsd^2/HDTmu^2+1)/2,
+                                    sdlog = sqrt(log(HDTsd^2/HDTmu^2+1)))
+  mll <- function(p, t, rd) {
+    -dbinom(rd$CumDeathNumber[t],round(sum(sapply(1:t, function(i)
+      sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*discrdist$d(j)))))), p, log = TRUE)
+  }
+  res2<-data.table(t(sapply(14:nrow(rd), function(s) {
+    temp <- bbmle::mle2(mll, list(p = 0.01), data = list(rd = rd, t = s), method = "Brent",
+                        lower = 1e-10, upper = 1-1e-10)
+    c(temp@coef,bbmle::confint(bbmle::profile(temp), "p", conf/100))
+  })))
+  names(res2) <- c("value", "lwr", "upr")
+  res2$`Típus` <- "Korrigált"
+  res2$Date <- rd[14:nrow(rd)]$Date
+  rbind(res,res2)
 }
