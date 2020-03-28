@@ -17,6 +17,7 @@ measSIR <- pomp::pomp(as.data.frame(RawData),
                       statenames = c("S", "E1", "E2", "I1", "I2", "I3","R","H"),
                       paramnames = c("N", "alpha", "Beta", "gamma", "rho"))
 mle <- read.csv2("mle.csv")
+Sys.setlocale(locale = "hu_HU.utf8")
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -304,7 +305,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.13" ),
+  h4( "Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.14" ),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -435,9 +436,8 @@ server <- function(input, output, session) {
     sims <- dataInputProjcomp()
     ggplot(sims, aes(x = Date,y = CaseNumber/1e3, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
       geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
-      geom_ribbon(data = subset(sims, .id=="CI"), aes(y = med/1e3, ymin = lwr/1e3,
-                                                      ymax = upr/1e3, fill = "blue", color = "blue", alpha = 0.3)) +
-      geom_line(data = subset(sims, .id=="CI"), aes(y = med/1e3, color = "blue", alpha = 1), size = 1.2) +
+      geom_ribbon(data = subset(sims, .id=="CI"), aes(y = med/1e3, ymin = lwr/1e3, ymax = upr/1e3), alpha = 0.2) +
+      geom_line(data = subset(sims, .id=="CI"), aes(y = med/1e3), size = 1.5) +
       geom_point(data = subset(sims, .id=="data"), size = 3, color = "black")  +
       labs(x = "Dátum", y = "Napi esetszám [ezer fő/nap]") + guides(color = FALSE, fill = FALSE) +
       coord_cartesian(xlim = c.Date(NA, input$projcompEnd),

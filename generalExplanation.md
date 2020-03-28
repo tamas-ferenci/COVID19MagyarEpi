@@ -48,12 +48,19 @@ Fontos látni, hogy az $R$ viszont semmit nem mond a járvány dinamikájáról,
 
 Az időbeli dinamika egyik fontos mérőszáma a serial interval: az az idő, amennyi egy eset tüneteinek jelentkezése és az általa megbetegített emberek tüneteinek jelentkezése között eltelik. Megint csak: ez sem egy konkrét szám, hanem egy eloszlás, néha kevesebb idő telik el, néha több. Gyakran feltételezzük, hogy az eloszlás alakja adott, csak bizonyos paramétereit -- várható értékét, szórását -- adjuk meg az adott konkrét betegségre, járványügyi helyzetre.
 
+### Halálozási arány és az aluldetektálás
+
+Egy betegség "veszélyességének" legalapvetőbb mérőszáma a halálozási arány. Egy éppen zajló járvány esetében azonban egyáltalán nem nyilvánvaló, hogy ennek mi a megfelelő számítása; a naiv számítás torzított eredményt ad. Éppen ezért fontos végiggondolni ezt a kérdést, és igyekezni kiküszöbölni ezt a torzítást.
+
+Bár elsőre meglepőnek hangozhat, de ez az eredmény aztán arra is felhasználható, hogy igyekezzünk jellemezni az aluldetektálást, tehát azt, hogy a betegek egy részéről nem tudjuk, hogy betegek, azaz nem jelennek meg a jelentett számban. (Vagy azért, mert vannak tüneteik ugyan, de mégsem tesztelték őket, vagy azért, mert tüneteik sincsenek; persze kellően széleskörű teszteléssel az ilyen esetek egy része is felderíthető lenne.)
+
 ## Mik a projekt egyes komponensei?
 
 A projekt több pontból épül fel, melyek közül a bal oldali menüben lehet választani.
 
 - A *Járványgörbe* mutatja a megbetegedések számának időbeli alakulását, azaz a járvány lefutását. Felhasználható a járvány alakulásának áttekintésére, illetve különféle görbék illeszthetők a tényadatokra (ez utóbbi azért is fontos, mert e görbék adatai később más számítások fontos bemenő paraméterét jelentik).
-- Az *Előrejelzés* pont összefoglalja a különféle módszerekből nyerhető előrejelzéseket az esetszám jövőbeli alakulására vonatkozóan. Persze ezek nem biztos értékek, úgyhogy az eredmények jellemzik a kapott előrejelzések bizonytalanságát is.
-- Az *R becslés növekedési ráta alapján* pont a járványgörbe meredeksége alapján -- melyet a rá illesztett megfelelő elméleti görbe paramétereiből olvashatunk ki -- ad becslést a reprodukciós számra. Itt is igaz, hogy az eredményekhez hozzátartozik a kapott becslésben lévő bizonytalanság jellemzése is.
-- Az *R becslés elágazó folyamat elven* pont az ún. elágazó folyamatok matematikáját használja arra, hogy a reprodukciós számra becslést adjon.
+- Az *Előrejelzés* pont összefoglalja a különféle módszerekből nyerhető előrejelzéseket az esetszám jövőbeli alakulására vonatkozóan. Persze ezek nem biztos értékek, úgyhogy az eredmények jellemzik a kapott előrejelzések bizonytalanságát is. Végezhető szcenárióelemzés is: megnézhetjük mi történik, ha a jelenlegi adatokból számolható helyett valamilyen más, általunk beállított érték szerint alakul a jövő.
+- Az *R becslés növekedési ráta alapján* pont a járványgörbe meredeksége alapján -- melyet a rá illesztett megfelelő elméleti görbe paramétereiből olvashatunk ki -- ad becslést a reprodukciós számra. Itt is igaz, hogy az eredményekhez hozzátartozik a kapott becslésben lévő bizonytalanság jellemzése is. Fontos, hogy a reprodukciós szám értékét nem csak az egész görbéből számolhatjuk ki, hanem úgy is, hogy csak a görbe egy szakaszát használjuk, ezzel a trükkel egy időben (például a meghozott intézkedések miatt) változó $R$-et is nyomon tudunk követni.
+- Az *R becslés elágazó folyamat elven* pont az ún. elágazó folyamatok matematikáját használja arra, hogy a reprodukciós számra becslést adjon. Az előzőhöz hasonlóan vizsgálható a bizonytalanság, illetve megengedhetjük, hogy az $R$ ne állandó legyen, hanem időben változó, és ezt kövessük.
+- A *Halálozási arány és aluldetektálás* pont a járvány halálozási rátáját követi, elvégzi korrigálását arra tekintettel, hogy egy éppen zajló járványban vagyunk és nem minden eset zárult le, illetve egy ettől külön -- de módszertanában erre építő -- problémakörként lehetővé teszi a betegek aluldetektálására történő következtetést.
 - Az *Automatikus jelentésgenerálás* a legfontosabb, fenti pontokon keresztül elérhető eredményeket automatikusan összeállítja egy PDF formátumú jelentésben és azt letölthetővé teszi.

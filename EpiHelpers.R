@@ -23,6 +23,7 @@ predData <- function(rd, distr, level, wind = NA, projper = 0, deltar = NA) {
 r2R0gamma <- function(r, si_mean, si_sd) {
   (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
 }
+
 lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
   df <- nrow(x$model) - 2
   r <- x$coefficients[2]
