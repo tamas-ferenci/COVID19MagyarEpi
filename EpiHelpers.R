@@ -1,10 +1,10 @@
-predData <- function(rd, distr, level, wind = NA, projper = 0, deltar = NA) {
+predData <- function(rd, distr, level, wind = NA, projper = 0, deltar = NA, deltardate = NA) {
   if(any(is.na(wind))) wind <- c(rd$NumDate[1]+1, tail(rd$NumDate,1)+1)
   if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
                                            CaseNumber = NA, DeathNumber = NA, CumCaseNumber = NA, CumDeathNumber = NA,
                                            NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
-  rd$Predicted <- is.na(rd$CaseNumber)
-  crit.value <- qt(1-(1-level/100)/2, df = sum(!rd$Predicted)-2)
+  rd$Deviated <- (rd$Date >= deltardate)&is.na(rd$CaseNumber)
+  crit.value <- qt(1-(1-level/100)/2, df = sum(!is.na(rd$CaseNumber))-2)
   if(distr=="Lognormális") {
     m <- lm(log(CaseNumber) ~ Date, data = rd[CaseNumber!=0], subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1))
   } else if(distr=="Poisson") {
@@ -12,8 +12,8 @@ predData <- function(rd, distr, level, wind = NA, projper = 0, deltar = NA) {
   } else if(distr=="Negatív binomiális") {
     m <- MASS::glm.nb(CaseNumber ~ Date, data = rd, subset = NumDate>=(wind[1]-1)&NumDate<=(wind[2]-1))
   }
-  if(!is.na(deltar)) m <- update(m, formula = as.formula(paste0(".~.+offset(", deltar, "*Predicted*(NumDate-",
-                                                                sum(!rd$Predicted)-1,"))")))
+  if(!is.na(deltar)) m <- update(m, formula = as.formula(paste0(".~.+offset(", deltar, "*Deviated*(NumDate-",
+                                                                sum(!rd$Deviated)-1,"))")))
   pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
                               data.table(fit = exp(fit), lwr = exp(fit - (crit.value * se.fit)),
                                          upr = exp(fit + (crit.value * se.fit)))))
@@ -35,22 +35,23 @@ lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
 round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, lapply(.SD, function(x)
   if(is.numeric(x)&!is.integer(x)) format(round(x, digits), nsmall = digits, trim = TRUE) else x)]
 
-epicurvePlot <- function(pred, logy, expfit, loessfit, ci, conf) {
+epicurvePlot <- function(pred, logy, expfit, loessfit, ci, conf, delta = FALSE, deltadate = NA) {
   ggplot(pred, aes(x = Date, y = CaseNumber)) + geom_point(size = 3) + labs(x = "Dátum", y = "Napi esetszám [fő/nap]") +
     {if(logy) scale_y_log10()} + {if(expfit) geom_line(aes(y = fit, color = is.na(CaseNumber)), show.legend = FALSE)} +
     {if(expfit&ci) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = is.na(CaseNumber)),
                                alpha = 0.2, show.legend = FALSE)} +
     {if(loessfit) geom_smooth(formula = y ~ x, method = "loess", col = "blue", se = ci,
-                              fill = "blue", alpha = 0.2, level = conf/100, size = 0.5)}
+                              fill = "blue", alpha = 0.2, level = conf/100, size = 0.5)} +
+    {if(delta) geom_vline(xintercept = deltadate)}
 }
 
-grText <- function(m, deltar = 0, future = FALSE) {
-  paste0(if(future) "A jövőbeli " else "A fenti exponenciális illesztéssel a ", "növekedési ráta ",
-         round_dt(coef(m)+deltar)[rn=="Date", -"rn"], " (95%-os CI: ",
-         paste0(round_dt(confint(m)+deltar)[rn=="Date", -"rn"], collapse = " - "),
-         "). Ez azt jelenti, hogy a duplázódási idő (az ahhoz szükséges idő, hogy a napi esetszám kétszeresére nőjön) ",
-         round_dt(log(2)/(coef(m)+deltar))[rn=="Date", -"rn"], " nap (95%-os CI: ",
-         paste0(rev(round_dt(log(2)/(confint(m)+deltar))[rn=="Date", -"rn"]), collapse = " - "), ").")
+grText <- function(m, deltar = 0, future = FALSE, deltarDate = NA) {
+  paste0(if(future) paste0( "A jövőbeli növekedési ráta ", deltarDate, " dátumtól ")  else 
+    "A fenti exponenciális illesztéssel a növekedési ráta ", round_dt(coef(m)+deltar)[rn=="Date", -"rn"], " (95%-os CI: ",
+    paste0(round_dt(confint(m)+deltar)[rn=="Date", -"rn"], collapse = " - "),
+    "). Ez azt jelenti, hogy a duplázódási idő (az ahhoz szükséges idő, hogy a napi esetszám kétszeresére nőjön) ",
+    round_dt(log(2)/(coef(m)+deltar))[rn=="Date", -"rn"], " nap (95%-os CI: ",
+    paste0(rev(round_dt(log(2)/(confint(m)+deltar))[rn=="Date", -"rn"]), collapse = " - "), ").")
 }
 
 grData <- function(m, SImu, SIsd) {
