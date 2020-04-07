@@ -4,6 +4,8 @@ Az előrejelzések többféle módszeren is alapulhatnak. Egy részük empirikus
 
 A módszerek másik része figyelembe veszi a háttérben lévő folyamatok mechanizmusát (ilyen értelemben szokták ezeket "mechanisztikus" modelleknek nevezni). Számos különböző elven alapuló mechanisztikus modellt próbáltak ki és használtak több-kevesebb sikerrel az epidemiológiában: a legklasszikusabb és máig tartóan legnagyobb hatásúak a kompartment modellek (ezekről részletesebben lesz szó később), újabban népszerűek a mikroszimulációk, melyek minden egyes ember viselkedését szimulálják valamilyen szabályszerűség alapján, és a hálózatelméleten alapuló modellek, melyek az embereket és a köztük lévő, fertőzés átadására alkalmas kapcsolatokat a matematikai gráf fogalmának feleltetik meg, és az ottani ismereteket alkalmazzák a járványok terjedésének leírására.
 
+Amit minden előrejelzésnél meg kell érteni: nincs olyan, hogy ez "a" lefutása a járványnak (amit mi előrejelzünk). Különösen hosszabb távon, meghatározó módon fog számítani, hogy mit teszünk: mik a kormányzati intézkedések, milyen az emberek viselkedése. E nélkül értelme sincs mit mondani, csak a "ha-akkor" típusú kijelentéseknek, tehát a szcenárióelemzéseknek van értelme.
+
 ### Empirikus előrejelzés
 
 Ez a módszer a talán legkézenfekvőbb: a tényadatokra illesztett görbét (lásd a Járványgörbe pontnál!) egyszerűen meghosszabbítjuk. Statisztikailag precízebben szólva: ha megvan a modellünk -- melyet a jelenlegi és múltbeli dátumok adatai alapján becsültünk --, lekérjük a becsléseit jövőbeli dátumokra is.

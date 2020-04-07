@@ -65,37 +65,34 @@ ui <- fluidPage(
                  tabPanel("Járványgörbe",
                           conditionalPanel("input.epicurveType=='Grafikon'", plotOutput("epicurveGraph")),
                           conditionalPanel("input.epicurveType=='Táblázat'", rhandsontable::rHandsontableOutput("epicurveTab")),
-                          conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveExpfit==1", textOutput("epicurveText")),
+                          conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1", textOutput("epicurveText")),
                           hr(),
                           fluidRow(
                             column(3,
                                    radioButtons("epicurveType", "Megjelenítés", c("Grafikon", "Táblázat")),
                                    conditionalPanel("input.epicurveType=='Grafikon'",
                                                     checkboxInput("epicurveLogy", "Függőleges tengely logaritmikus"),
-                                                    checkboxInput("epicurveExpfit", "Exponenciális görbe illesztése"),
-                                                    checkboxInput("epicurveLoessfit",
-                                                                  "LOESS nem-paraméteres simítógörbe illesztése")
-                                   )
-                            ),
-                            column(3,
-                                   conditionalPanel("input.epicurveType=='Grafikon'",
-                                                    conditionalPanel("input.epicurveExpfit==1",
-                                                                     radioButtons("epicurveDistr", "Eloszlás:",
-                                                                                  c( "Lognormális", "Poisson",
-                                                                                     "Negatív binomiális"),
-                                                                                  selected = "Poisson")),
-                                                    conditionalPanel("input.epicurveExpfit==1|input.epicurveLoessfit==1",
+                                                    checkboxInput("epicurveLoessfit", "Simítógörbe illesztése", TRUE),
+                                                    checkboxInput("epicurveFunfit", "Függvény illesztése"),
+                                                    conditionalPanel("input.epicurveFunfit==1|input.epicurveLoessfit==1",
                                                                      checkboxInput("epicurveCi",
                                                                                    "Konfidenciaintervallum megjelenítése")),
                                                     conditionalPanel(
-                                                      "(input.epicurveExpfit==1|input.epicurveLoessfit==1)&input.epicurveCi==1",
+                                                      "(input.epicurveFunfit==1|input.epicurveLoessfit==1)&input.epicurveCi==1",
                                                       numericInput("epicurveConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
                             ),
                             column(3,
-                                   conditionalPanel(
-                                     "(input.epicurveExpfit==1|input.epicurveLoessfit==1)&input.epicurveType=='Grafikon'",
-                                     sliderInput("epicurveWindow", "Ablakozás a görbeillesztéshez [nap]:", 1,
-                                                 nrow(RawData), c(1, nrow(RawData)), 1))
+                                   conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1",
+                                                    radioButtons("epicurveFform", "Függvényforma",
+                                                                 c("Exponenciális", "Hatvány", "Logisztikus")),
+                                                    sliderInput("epicurveWindow", "Ablakozás a függvényillesztéshez [nap]:", 1,
+                                                                nrow(RawData), c(1, nrow(RawData)), 1)
+                                   )
+                            ),
+                            column(3,
+                                   conditionalPanel("input.epicurveFunfit==1", radioButtons("epicurveDistr", "Eloszlás:",
+                                                                                            c( "Lognormális", "Poisson",
+                                                                                               "NB/QP"), selected = "Poisson"))
                             )
                           )
                  ),
@@ -115,23 +112,25 @@ ui <- fluidPage(
                             column(3,
                                    radioButtons("projempType", "Megjelenítés", c("Grafikon", "Táblázat")),
                                    numericInput("projempPeriods", "Előrejelzett napok száma", 3, 1, 14, 1),
+                                   conditionalPanel("input.projempType=='Grafikon'",
+                                                    checkboxInput("projempLogy", "Függőleges tengely logaritmikus")),
                                    checkboxInput("projempCi", "Konfidenciaintervallum megjelenítése"),
                                    conditionalPanel("input.projempCi==1",
-                                                    numericInput("projempConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)),
-                                   conditionalPanel("input.projempType=='Grafikon'",
-                                                    checkboxInput("projempLogy", "Függőleges tengely logaritmikus"))
+                                                    numericInput("projempConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
                             ),
                             column(3,
                                    h4("Görbeillesztés paraméterei"),
+                                   radioButtons("projempFform", "Függvényforma",
+                                                c("Exponenciális", "Hatvány", "Logisztikus")),
                                    radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális"),
                                                 selected = "Poisson"),
                                    sliderInput("projempWindow", "Ablakozás", 1, nrow(RawData), c(1, nrow(RawData)), 1)
                             ),
                             column(3,
                                    radioButtons("projempFuture", "Jövőbeli növekedés:", c("Tényadat",
-                                                                                          "Szcenárióelemzés (növekedési ráta)")),
-                                   conditionalPanel("input.projempFuture=='Szcenárióelemzés (növekedési ráta)'",
-                                                    numericInput("projempDeltar", "Növekedési ráta eltérítése", 0, -2, 2, 0.01),
+                                                                                          "Szcenárióelemzés")),
+                                   conditionalPanel("input.projempFuture=='Szcenárióelemzés'",
+                                                    numericInput("projempDeltar", "Eltérítés", 0, -2, 2, 0.01),
                                                     dateInput("projempDeltarDate", "Időpontja", max(RawData$Date),
                                                               max(RawData$Date), Sys.Date()+14))
                             )
@@ -300,7 +299,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.15"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.17"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -319,17 +318,16 @@ server <- function(input, output, session) {
   observe(updateDateInput(session, "projcompDeltaDate", max = input$projcompEnd))
   
   dataInputEpicurve <- reactive({
-    predData(RawData, input$epicurveDistr, input$epicurveConf, input$epicurveWindow)
+    predData(RawData, input$epicurveFform, input$epicurveDistr, input$epicurveConf, input$epicurveWindow)
   })
   
   output$epicurveGraph <- renderPlot({
-    epicurvePlot(dataInputEpicurve()$pred, input$epicurveLogy, input$epicurveExpfit, input$epicurveLoessfit,
-                 input$epicurveCi, input$epicurveConf)
+    epicurvePlot(dataInputEpicurve()$pred, input$epicurveLogy, input$epicurveFunfit, input$epicurveLoessfit,
+                 input$epicurveCi, input$epicurveConf,
+                 wind = if(any(input$epicurveWindow!=c(1, nrow(RawData)))) RawData$Date[input$epicurveWindow] else NA)
   })
   
-  output$epicurveText <- renderText({
-    grText(dataInputEpicurve()$m, if(input$projempFuture=="Tényadat") 0 else input$projempDeltar)
-  })
+  output$epicurveText <- renderText(grText(dataInputEpicurve()$m, input$epicurveFform, startDate = min(RawData$Date)))
   
   output$epicurveTab <- rhandsontable::renderRHandsontable({
     rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber")],
@@ -337,7 +335,7 @@ server <- function(input, output, session) {
   })
   
   dataInputProjemp <- reactive({
-    predData(RawData, input$projempDistr, input$projempConf, input$projempWindow, input$projempPeriods,
+    predData(RawData, input$projempFform, input$projempDistr, input$projempConf, input$projempWindow, input$projempPeriods,
              if(input$projempFuture=="Tényadat") NA else input$projempDeltar, input$projempDeltarDate)
   })
   
@@ -347,7 +345,8 @@ server <- function(input, output, session) {
   })
   
   output$projempGraphText <- renderText({
-    grText(dataInputProjemp()$m, if(input$projempFuture=="Tényadat") 0 else input$projempDeltar, TRUE, input$projempDeltarDate)
+    grText(dataInputProjemp()$m, input$projempFform, if(input$projempFuture=="Tényadat") 0 else input$projempDeltar, TRUE,
+           input$projempDeltarDate, min(RawData$Date))
   })
   
   output$projempTab <- rhandsontable::renderRHandsontable({
@@ -362,9 +361,7 @@ server <- function(input, output, session) {
                                  readOnly = TRUE)
   })
   
-  dataInputGr <- reactive({
-    predData(RawData, input$grDistr, 95, input$grWindow)
-  })
+  dataInputGr <- reactive(predData(RawData, "Exponenciális", input$grDistr, 95, input$grWindow))
   
   output$grGraph <- renderPlot({
     ggplot(grData(dataInputGr()$m, input$grSImu, input$grSIsd), aes(R)) + geom_density() + labs(y = "") +
@@ -379,7 +376,7 @@ server <- function(input, output, session) {
   
   dataInputGrSw <- reactive({
     lapply(1:(nrow(RawData)-input$grSwWindowlen+1),
-           function(i) predData(RawData[i:(i+input$grSwWindowlen-1)], input$grSwDistr, 95)$m )
+           function(i) predData(RawData[i:(i+input$grSwWindowlen-1)], "Exponenciális", input$grSwDistr, 95)$m )
   })
   
   output$grSwGraph <- renderPlot({
