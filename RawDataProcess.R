@@ -1,8 +1,10 @@
 library(data.table)
 
-RawData <- data.table(Date=seq.Date(as.Date("2020-03-04"),as.Date("2020-04-06"),by="days"),
-                      CaseNumber=c(3,0,2,2,2,3,1,3,3,6,7,7,11,8,15,12,17,28,35,21,38,37,39,42,66,38,45,34,60,38,55,55,11,73),
-                      DeathNumber=c(rep(0, 9), 1, 1, 1, 1, 1, 0, 1, 2, 0, 1, 2, 2, 1, 1, 1, 1, 3, 2, 3, 2, 3, 2,2,4,9))
+RawData <- data.table(Date=seq.Date(as.Date("2020-03-04"),as.Date("2020-04-11"),by="days"),
+                      CaseNumber=c(3,0,2,2,2,3,1,3,3,6,7,7,11,8,15,12,17,28,35,21,38,37,39,42,66,38,45,34,60,38,55,55,11,73,78,
+                                   85,210,120,100),
+                      DeathNumber=c(rep(0, 9), 1, 1, 1, 1, 1, 0, 1, 2, 0, 1, 2, 2, 1, 1, 1, 1, 3, 2, 3, 2, 3, 2,2,4,9,11,8,11,
+                                    8,14))
 
 # tmp <- tempfile(fileext = ".xlsx")
 # download.file(url = paste0("https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-",

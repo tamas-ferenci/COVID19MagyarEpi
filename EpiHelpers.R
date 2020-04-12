@@ -7,19 +7,20 @@ LogisticDeriv <- function(Time){
 }
 class(LogisticDeriv) <- "nonlin"
 
-predData <- function(rd, fform, distr, level = 95, wind = NA, projper = 0, deltar = NA, deltardate = NA) {
+predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = "Poisson", level = 95, wind = NA,
+                     projper = 0, deltar = NA, deltardate = NA) {
   if(any(is.na(wind))) wind <- c(rd$NumDate[1], tail(rd$NumDate,1))
   if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
                                            CaseNumber = NA, DeathNumber = NA, CumCaseNumber = NA, CumDeathNumber = NA,
                                            NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
-  rd$Deviated <- (rd$Date >= deltardate)&is.na(rd$CaseNumber)
-  crit.value <- qt(1-(1-level/100)/2, df = sum(!is.na(rd$CaseNumber))-2)
+  rd$Deviated <- (rd$Date >= deltardate)&is.na(rd[[what]])
+  crit.value <- qt(1-(1-level/100)/2, df = sum(!is.na(rd[[what]]))-2)
   if(fform=="Exponenciális") {
-    fitformula <- paste(if(distr=="Lognormális") "log", "(CaseNumber)~Date")
+    fitformula <- paste(if(distr=="Lognormális") "log", "(", what, ")~Date")
   } else if(fform=="Hatvány") {
-    fitformula <- paste(if(distr=="Lognormális") "log", "(CaseNumber)~log(NumDate)")
+    fitformula <- paste(if(distr=="Lognormális") "log", "(", what, ")~log(NumDate)")
   } else if(fform=="Logisztikus") {
-    fitformula <- "CaseNumber~LogisticDeriv(NumDate)-1"
+    fitformula <- paste(what, "~LogisticDeriv(NumDate)-1")
   }
   if(fform%in%c("Exponenciális", "Hatvány")&!is.na(deltar)) fitformula <- paste(fitformula, "+offset(", deltar,
                                                                                 "*Deviated*(NumDate-", sum(!rd$Deviated), "))")
@@ -29,7 +30,7 @@ predData <- function(rd, fform, distr, level = 95, wind = NA, projper = 0, delta
   startval <- if(fform=="Logisztikus") c(1000, 10, 1) else NULL
   if(distr=="Lognormális") {
     fitfun <- if(fform!="Logisztikus") lm else gnm::gnm
-    data <- if(fform!="Logisztikus") rd[CaseNumber!=0] else rd
+    data <- if(fform!="Logisztikus") rd[rd[[what]]!=0] else rd
     if(fform=="Logisztikus") family <- gaussian(link = "log")
   } else if(distr=="Poisson") {
     fitfun <- if(fform!="Logisztikus") glm else gnm::gnm
@@ -69,13 +70,18 @@ lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
 round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, lapply(.SD, function(x)
   if(is.numeric(x)&!is.integer(x)) format(round(x, digits), nsmall = digits, trim = TRUE) else x)]
 
-epicurvePlot <- function(pred, logy, funfit, loessfit, ci, conf, delta = FALSE, deltadate = NA, wind = NA) {
-  ggplot(pred, aes(x = Date, y = CaseNumber)) +
-    {if(any(!is.na(wind))) annotate("rect", ymin = -Inf, ymax = +Inf, xmin = wind[1], xmax = wind[2], alpha = 0.1, fill = "red")} +
-    geom_point(size = 3) + labs(x = "Dátum", y = "Napi esetszám [fő/nap]") +
-    {if(logy) scale_y_log10()} + {if(funfit) geom_line(aes(y = fit, color = is.na(CaseNumber)), show.legend = FALSE)} +
-    {if(funfit&ci) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = is.na(CaseNumber)),
-                               alpha = 0.2, show.legend = FALSE)} +
+sepform <- function(x) format(x, big.mark = " ", scientific = FALSE)
+
+epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE,
+                         loessfit = TRUE, ci = TRUE, conf = 95, delta = FALSE, deltadate = NA, wind = NA) {
+  pred$col <- is.na(pred[[what]])
+  ggplot(pred, aes_string(x = "Date", y = what)) +
+    {if(any(!is.na(wind))) annotate("rect", ymin = -Inf, ymax = +Inf, xmin = wind[1], xmax = wind[2], alpha = 0.1,
+                                    fill = "red")} +
+    geom_point(size = 3) + labs(x = "Dátum",
+                                y = paste0("Napi ", if(what=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]")) +
+    {if(logy) scale_y_log10()} + {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +
+    {if(funfit&ci) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = col), alpha = 0.2, show.legend = FALSE)} +
     {if(loessfit) geom_smooth(formula = y ~ x, method = "loess", col = "blue", se = ci,
                               fill = "blue", alpha = 0.2, level = conf/100, size = 0.5)} +
     {if(delta) geom_vline(xintercept = deltadate)}
@@ -116,15 +122,15 @@ grSwData <- function(rd, ms, SImu, SIsd, windowlen) {
   res
 }
 
-branchData <- function(rd, SImu, SIsd, wind = NA) {
+branchData <- function(rd, what = "CaseNumber", SImu, SIsd, wind = NA) {
   if(any(is.na(wind))) wind <- c(max(c(2, rd$NumDate[1])), tail(rd$NumDate,1))
   data.table(R = EpiEstim::sample_posterior_R(EpiEstim::estimate_R(
-    rd$CaseNumber, method = "parametric_si",
+    rd[[what]], method = "parametric_si",
     config = EpiEstim::make_config(list(mean_si = SImu, std_si = SIsd, t_start = wind[1], t_end = wind[2])))))
 }
 
-branchSwData <- function(rd, SImu, SIsd, windowlen) {
-  res <- EpiEstim::estimate_R(rd$CaseNumber, method = "parametric_si",
+branchSwData <- function(rd, what = "CaseNumber", SImu, SIsd, windowlen) {
+  res <- EpiEstim::estimate_R(rd[[what]], method = "parametric_si",
                               config = EpiEstim::make_config(list(
                                 t_start = seq(2, nrow(rd)-windowlen+1), t_end = (2+windowlen-1):nrow(rd),
                                 mean_si = SImu, std_si = SIsd)))$R
@@ -132,7 +138,7 @@ branchSwData <- function(rd, SImu, SIsd, windowlen) {
   res
 }
 
-cfrData <- function(rd, HDTmu, HDTsd, conf) {
+cfrData <- function(rd, HDTmu, HDTsd, conf, start) {
   res <- data.table(t(mapply(function(...) with(binom.test(...), c(estimate, conf.int)),
                              rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf/100))))
   names(res) <- c("value", "lwr", "upr")
@@ -144,13 +150,13 @@ cfrData <- function(rd, HDTmu, HDTsd, conf) {
     -dbinom(rd$CumDeathNumber[t],round(sum(sapply(1:t, function(i)
       sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*discrdist$d(j)))))), p, log = TRUE)
   }
-  res2<-data.table(t(sapply(14:nrow(rd), function(s) {
+  res2<-data.table(t(sapply(start:nrow(rd), function(s) {
     temp <- bbmle::mle2(mll, list(p = 0.01), data = list(rd = rd, t = s), method = "Brent",
                         lower = 1e-10, upper = 1-1e-10)
     c(temp@coef,bbmle::confint(bbmle::profile(temp), "p", conf/100))
   })))
   names(res2) <- c("value", "lwr", "upr")
   res2$`Típus` <- "Korrigált"
-  res2$Date <- rd[14:nrow(rd)]$Date
+  res2$Date <- rd[start:nrow(rd)]$Date
   rbind(res,res2)
 }

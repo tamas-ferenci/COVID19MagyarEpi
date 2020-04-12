@@ -6,7 +6,6 @@ RawData <- readRDS("RawData.dat")
 
 source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
-mle <- read.csv2("mle.csv")
 Sys.setlocale(locale = "hu_HU.utf8")
 
 ui <- fluidPage(
@@ -68,6 +67,8 @@ ui <- fluidPage(
                           conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1", textOutput("epicurveText")),
                           hr(),
                           fluidRow(
+                            column(3, radioButtons("epicurveOutcome", "Vizsgált végpont",
+                                                   c("Esetszám" = "CaseNumber", "Halálozások száma" = "DeathNumber"))),
                             column(3,
                                    radioButtons("epicurveType", "Megjelenítés", c("Grafikon", "Táblázat")),
                                    conditionalPanel("input.epicurveType=='Grafikon'",
@@ -90,9 +91,9 @@ ui <- fluidPage(
                                    )
                             ),
                             column(3,
-                                   conditionalPanel("input.epicurveFunfit==1", radioButtons("epicurveDistr", "Eloszlás:",
-                                                                                            c( "Lognormális", "Poisson",
-                                                                                               "NB/QP"), selected = "Poisson"))
+                                   conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1",
+                                                    radioButtons("epicurveDistr", "Eloszlás",
+                                                                 c( "Lognormális", "Poisson", "NB/QP"), selected = "Poisson"))
                             )
                           )
                  ),
@@ -109,6 +110,8 @@ ui <- fluidPage(
                           textOutput("projempGraphText"),
                           hr(),
                           fluidRow(
+                            column(3, radioButtons("projempOutcome", "Vizsgált végpont",
+                                                   c("Esetszám" = "CaseNumber", "Halálozások száma" = "DeathNumber"))),
                             column(3,
                                    radioButtons("projempType", "Megjelenítés", c("Grafikon", "Táblázat")),
                                    numericInput("projempPeriods", "Előrejelzett napok száma", 3, 1, 14, 1),
@@ -137,26 +140,30 @@ ui <- fluidPage(
                           )
                  ),
                  tabPanel("Kompartment-modell (hosszú távú)",
-                          conditionalPanel("input.projcompType=='Grafikon'", plotOutput("projcompGraph")),
-                          conditionalPanel("input.projcompType=='Táblázat'", rhandsontable::rHandsontableOutput("projcompTab")),
-                          textOutput("projcompText"),
+                          fluidRow(
+                            column(8,                          
+                                   conditionalPanel("input.projcompType=='Grafikon'", plotOutput("projcompGraph")),
+                                   conditionalPanel("input.projcompType=='Táblázat'",
+                                                    rhandsontable::rHandsontableOutput("projcompTab"))
+                            ),
+                            column(4,
+                                   rhandsontable::rHandsontableOutput("projcompInput"),
+                                   fluidRow(hr(), actionButton("projcompAddrow", "Új sor hozzáadása"),
+                                            actionButton("projcompDeleterow", "Utolsó sor törlése")))
+                          ),
+                          #textOutput("projcompText"),
                           hr(),
                           fluidRow(
                             column(3,
                                    radioButtons("projcompType", "Megjelenítés", c("Grafikon", "Táblázat")),
                                    dateInput("projcompEnd", "Előrevetítés vége", "2020-07-01", max(RawData$Date)+1,
-                                             min(RawData$Date)+200)
+                                             min(RawData$Date)+200),
+                                   conditionalPanel("input.projcompType=='Grafikon'",
+                                                    checkboxInput("projcompLogy", "Függőleges tengely logaritmikus"))
                             ),
                             column(3,
-                                   radioButtons("projcompFuture", "Jövőbeli növekedés:", c("Tényadat", "Szcenárióelemzés")),
-                                   conditionalPanel("input.projcompFuture=='Szcenárióelemzés'",
-                                                    # numericInput("projcompIncub", "Inkubációs idő [nap]", 5, 0, 20, 0.1),
-                                                    # numericInput("projcompInfect", "Fertőzőképesség hossza [nap]",
-                                                    #              3, 0, 20, 0.1),
-                                                    numericInput("projcompReprnumDelta", "Reprodukciós szám eltérítése", 0, -5,
-                                                                 5, 0.1),
-                                                    dateInput("projcompDeltaDate", "Időpontja", max(RawData$Date),
-                                                              min(RawData$Date), min(RawData$Date)+200))
+                                   numericInput("projcompIncub", "Inkubációs idő [nap]", 5, 0, 20, 0.1),
+                                   numericInput("projcompInfect", "Fertőzőképesség hossza [nap]", 3, 0, 20, 0.1)
                             )
                           )
                  ),
@@ -175,6 +182,8 @@ ui <- fluidPage(
                           conditionalPanel("input.grType=='Táblázat'", rhandsontable::rHandsontableOutput("grTab")),
                           hr(),
                           fluidRow(
+                            # column(3, radioButtons("grOutcome", "Vizsgált végpont",
+                            #                        c("Esetszám" = "CaseNumber", "Halálozások száma" = "DeathNumber"))),
                             column(3, radioButtons("grType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
                                    h4("Görbeillesztés paraméterei"),
@@ -195,6 +204,8 @@ ui <- fluidPage(
                           conditionalPanel("input.grSwType=='Táblázat'", rhandsontable::rHandsontableOutput("grSwTab")),
                           hr(),
                           fluidRow(
+                            # column(3, radioButtons("grSwOutcome", "Vizsgált végpont",
+                            #                        c("Esetszám" = "CaseNumber", "Halálozások száma" = "DeathNumber"))),
                             column(3, radioButtons("grSwType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
                                    h4("Görbeillesztés paraméterei"),
@@ -223,6 +234,8 @@ ui <- fluidPage(
                           conditionalPanel("input.branchType=='Táblázat'", rhandsontable::rHandsontableOutput("branchTab")),
                           hr(),
                           fluidRow(
+                            # column(3, radioButtons("branchOutcome", "Vizsgált végpont",
+                            #                        c("Esetszám" = "CaseNumber", "Halálozások száma" = "DeathNumber"))),
                             column(3, radioButtons("branchType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
                                    numericInput("branchSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
@@ -241,6 +254,8 @@ ui <- fluidPage(
                           conditionalPanel("input.branchSwType=='Táblázat'", rhandsontable::rHandsontableOutput("branchSwTab")),
                           hr(),
                           fluidRow(
+                            # column(3, radioButtons("branchSwOutcome", "Vizsgált végpont",
+                            #                        c("Esetszám" = "CaseNumber", "Halálozások száma" = "DeathNumber"))),
                             column(3, radioButtons("branchSwType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
                                    numericInput("branchSwSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
@@ -299,7 +314,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.17"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.19"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -318,30 +333,32 @@ server <- function(input, output, session) {
   observe(updateDateInput(session, "projcompDeltaDate", max = input$projcompEnd))
   
   dataInputEpicurve <- reactive({
-    predData(RawData, input$epicurveFform, input$epicurveDistr, input$epicurveConf, input$epicurveWindow)
+    predData(RawData, input$epicurveOutcome, input$epicurveFform, input$epicurveDistr, input$epicurveConf, input$epicurveWindow)
   })
   
   output$epicurveGraph <- renderPlot({
-    epicurvePlot(dataInputEpicurve()$pred, input$epicurveLogy, input$epicurveFunfit, input$epicurveLoessfit,
-                 input$epicurveCi, input$epicurveConf,
+    epicurvePlot(dataInputEpicurve()$pred, input$epicurveOutcome, input$epicurveLogy, input$epicurveFunfit,
+                 input$epicurveLoessfit, input$epicurveCi, input$epicurveConf,
                  wind = if(any(input$epicurveWindow!=c(1, nrow(RawData)))) RawData$Date[input$epicurveWindow] else NA)
   })
   
   output$epicurveText <- renderText(grText(dataInputEpicurve()$m, input$epicurveFform, startDate = min(RawData$Date)))
   
   output$epicurveTab <- rhandsontable::renderRHandsontable({
-    rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber")],
-                                 colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE)
+    rhandsontable::rhandsontable(RawData[,c("Date", input$epicurveOutcome), with = FALSE],
+                                 colHeaders = c("Dátum",
+                                                paste0("Napi ", if(input$epicurveOutcome=="CaseNumber") "eset" else "halálozás-",
+                                                       "szám [fő/nap]")), readOnly = TRUE, height = 500)
   })
   
   dataInputProjemp <- reactive({
-    predData(RawData, input$projempFform, input$projempDistr, input$projempConf, input$projempWindow, input$projempPeriods,
-             if(input$projempFuture=="Tényadat") NA else input$projempDeltar, input$projempDeltarDate)
+    predData(RawData, input$projempOutcome, input$projempFform, input$projempDistr, input$projempConf, input$projempWindow,
+             input$projempPeriods, if(input$projempFuture=="Tényadat") NA else input$projempDeltar, input$projempDeltarDate)
   })
   
   output$projempGraph <- renderPlot({
-    epicurvePlot(dataInputProjemp()$pred, input$projempLogy, TRUE, FALSE, input$projempCi, NA, input$projempFuture!="Tényadat",
-                 input$projempDeltarDate)
+    epicurvePlot(dataInputProjemp()$pred, input$projempOutcome, input$projempLogy, TRUE, FALSE, input$projempCi, NA,
+                 input$projempFuture!="Tényadat", input$projempDeltarDate)
   })
   
   output$projempGraphText <- renderText({
@@ -351,17 +368,19 @@ server <- function(input, output, session) {
   
   output$projempTab <- rhandsontable::renderRHandsontable({
     pred <- round_dt(dataInputProjemp()$pred)
-    pred2 <- pred[, c("Date", "CaseNumber")]
+    pred2 <- pred[, c("Date", input$projempOutcome), with = FALSE]
     pred2$Pred <- if(input$projempCi) paste0(pred$fit, " (", pred$lwr, "-", pred$upr, ")") else pred$fit
     pred2 <- pred2[!duplicated(Date)]
-    rhandsontable::rhandsontable(pred2, colHeaders = c("Dátum", "Napi esetszám [fő/nap]",
-                                                       if(input$projempCi) paste0("Becsült napi esetszám (", input$projempConf,
-                                                                                  "%-os CI) [fő/nap]") else
-                                                                                    "Becsült napi esetszám [fő/nap]"),
-                                 readOnly = TRUE)
+    rhandsontable::rhandsontable(
+      pred2, colHeaders = c("Dátum",
+                            paste0("Napi ", if(input$projempOutcome=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]"),
+                            if(input$projempCi) paste0("Becsült napi ", if(input$projempOutcome=="CaseNumber") "eset" else
+                              "halálozás-", "szám [fő/nap] (", input$projempConf, "%-os CI) [fő/nap]") else
+                                paste0("Becsült napi ", if(input$projempOutcome=="CaseNumber") "eset" else
+                                  "halálozás-", "szám [fő/nap]")), readOnly = TRUE, height = 500)
   })
   
-  dataInputGr <- reactive(predData(RawData, "Exponenciális", input$grDistr, 95, input$grWindow))
+  dataInputGr <- reactive(predData(RawData, "CaseNumber", "Exponenciális", input$grDistr, 95, input$grWindow))
   
   output$grGraph <- renderPlot({
     ggplot(grData(dataInputGr()$m, input$grSImu, input$grSIsd), aes(R)) + geom_density() + labs(y = "") +
@@ -376,7 +395,8 @@ server <- function(input, output, session) {
   
   dataInputGrSw <- reactive({
     lapply(1:(nrow(RawData)-input$grSwWindowlen+1),
-           function(i) predData(RawData[i:(i+input$grSwWindowlen-1)], "Exponenciális", input$grSwDistr, 95)$m )
+           function(i) predData(RawData[i:(i+input$grSwWindowlen-1)], "CaseNumber", "Exponenciális",
+                                input$grSwDistr, 95)$m )
   })
   
   output$grSwGraph <- renderPlot({
@@ -392,19 +412,19 @@ server <- function(input, output, session) {
   })
   
   output$branchGraph <- renderPlot({
-    ggplot(branchData(RawData, input$branchSImu, input$branchSIsd, input$branchWindow), aes(R)) + geom_density() + labs(y = "") +
-      geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
+    ggplot(branchData(RawData, "CaseNumber", input$branchSImu, input$branchSIsd, input$branchWindow), aes(R)) + geom_density() +
+      labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
   })
   
   output$branchTab <- rhandsontable::renderRHandsontable({
     rhandsontable::rhandsontable(data.table(
       `Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum" ),
-      `Érték` = as.numeric(summary(branchData(RawData, input$branchSImu, input$branchSIsd, input$branchWindow)$R))),
-      readOnly = TRUE)
+      `Érték` = as.numeric(summary(branchData(RawData, "CaseNumber", input$branchSImu, input$branchSIsd,
+                                              input$branchWindow)$R))), readOnly = TRUE)
   })
   
   output$branchSwGraph <- renderPlot({
-    ggplot(branchSwData(RawData, input$branchSwSImu, input$branchSwSIsd, input$branchSwWindowlen), aes(x = Date)) +
+    ggplot(branchSwData(RawData, "CaseNumber", input$branchSwSImu, input$branchSwSIsd, input$branchSwWindowlen), aes(x = Date)) +
       geom_line(aes(y = `Mean(R)`), col = "blue") +
       geom_ribbon(aes(ymin = `Quantile.0.025(R)`, ymax = `Quantile.0.975(R)`), fill = "blue", alpha = 0.2) +
       geom_hline(yintercept = 1, color = "red") + labs(x = "Dátum", y = "R") + expand_limits(y = 1)
@@ -412,68 +432,88 @@ server <- function(input, output, session) {
   
   output$branchSwTab <- rhandsontable::renderRHandsontable({
     rhandsontable::rhandsontable(round_dt(branchSwData(
-      RawData, input$branchSwSImu, input$branchSwSIsd, input$branchSwWindowlen))[
+      RawData, "CaseNumber", input$branchSwSImu, input$branchSwSIsd, input$branchSwWindowlen))[
         , .(`Dátum` = Date, `R (95%-os CrI)` = paste0(`Mean(R)`, " (",`Quantile.0.025(R)`, "-", `Quantile.0.975(R)`, ")"))],
       readOnly = TRUE)
   })
   
+  values <- reactiveValues(Rs = data.table(Date = as.Date(c("2020-03-04", "2020-03-13")), R = c(2.7, 1.2)))
+  
+  output$projcompInput <- rhandsontable::renderRHandsontable({
+    rhandsontable::hot_cell(rhandsontable::hot_validate_numeric(
+      rhandsontable::rhandsontable(values$Rs, colHeaders = c("Dátum", "R")), 2, min = 0.001), 1, 1, readOnly = TRUE)
+  })
+  
   dataInputProjcomp <- reactive({
-    # pars <- if(input$projcompFuture=="Tényadat") mle else c(mle["N"], mle["rho"], alpha = 1/input$projcompIncub,
-    #                                                         Beta = input$projcompReprnum/input$projcompInfect,
-    #                                                         gamma = 1/input$projcompInfect)
-    pars <- c(mle["N"], mle["rho"])
-    measSIR <- pomp::pomp(as.data.frame(RawData),
-                          times = "NumDate", t0 = 0,
-                          rprocess = pomp::euler(seir_step, delta.t = 1/7),
-                          rinit = seir_init,
-                          rmeasure = rmeas,
-                          dmeasure = dmeas,
-                          accumvars = "H",
-                          partrans = pomp::parameter_trans(logit=c("rho")),
-                          statenames = c("S", "E1", "E2", "I1", "I2", "I3","R","H"),
-                          paramnames = c("N", "rho"),
-                          covar = pomp::covariate_table(Beta = c(rep(mle[["Beta"]], input$projcompDeltaDate-min(RawData$Date)),
-                                                                 rep(mle[["Beta"]]+input$projcompReprnumDelta/3.6,
-                                                                     201-(input$projcompDeltaDate-min(RawData$Date)))),
-                                                        alpha = rep(mle[["Beta"]], 201), gamma = rep(mle[["gamma"]], 201),
-                                                        times=0:200))
-    sims <- data.table(pomp::simulate(measSIR, params = pars, nsim = 500, include.data = TRUE,
-                                      format = "data.frame", times = 0:200))
-    sims$Date <- min(RawData$Date) + sims$NumDate
-    rbind(sims, sims[.id!="data", .(.id = "CI", med = median(CaseNumber), lwr = quantile(CaseNumber, 0.025),
-                                    upr = quantile(CaseNumber, 0.975)) , .(Date)], fill = TRUE)
+    if(!is.null(input$projcompInput)) {
+      withProgress(message = "Szimulálás", value = 0, max = 12, {
+        incProgress(1, detail = "Modell összeállítása")
+        measSIR <- pomp::pomp(as.data.frame(RawData),
+                              times = "NumDate", t0 = 0,
+                              rprocess = pomp::euler(seir_step, delta.t = 1/7),
+                              rinit = seir_init,
+                              rmeasure = rmeas,
+                              dmeasure = dmeas,
+                              accumvars = "H",
+                              partrans = pomp::parameter_trans(logit=c("rho")),
+                              statenames = c("S", "E1", "E2", "I1", "I2", "I3", "R", "H"),
+                              paramnames = c("N", "rho"),
+                              covar = pomp::covariate_table(
+                                Beta = tidyr::fill(merge(data.table(Date = seq.Date(as.Date("2020-03-04"),
+                                                                                    as.Date("2020-03-04")+200, by = "days")),
+                                                         rhandsontable::hot_to_r(input$projcompInput), all.x = TRUE),
+                                                   "R")$R/input$projcompInfect,
+                                alpha = rep(1/input$projcompIncub, 201), gamma = rep(1/input$projcompInfect, 201), times=0:200
+                              ))
+        sims <- rbindlist(lapply(1:10, function(i) {
+          incProgress(1, detail = paste("Szimuláció futtatása ", i*10, "%"))
+          data.table(pomp::simulate(measSIR, params = c(N = 9772756, rho = 1), nsim = 50,
+                                    format = "data.frame", times = 0:200))[,.id:=as.numeric(.id)+(i-1)*50]
+        }))
+        
+        incProgress(1, detail = "Eredmények összeállítása")
+        sims$Date <- min(RawData$Date) + sims$NumDate
+        rbind(RawData, sims, sims[, .(.id = 0, med = median(CaseNumber), lwr = quantile(CaseNumber, 0.025),
+                                      upr = quantile(CaseNumber, 0.975)), .(Date)], fill = TRUE)
+      })
+    } else NULL
   })
   
   output$projcompGraph <- renderPlot({
     sims <- dataInputProjcomp()
-    ggplot(sims, aes(x = Date,y = CaseNumber/1e3, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
-      geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
-      geom_ribbon(data = subset(sims, .id=="CI"), aes(y = med/1e3, ymin = lwr/1e3, ymax = upr/1e3), alpha = 0.2) +
-      geom_line(data = subset(sims, .id=="CI"), aes(y = med/1e3), size = 1.5) +
-      geom_point(data = subset(sims, .id=="data"), size = 3, color = "black")  +
-      labs(x = "Dátum", y = "Napi esetszám [ezer fő/nap]") + guides(color = FALSE, fill = FALSE) +
-      coord_cartesian(xlim = c.Date(NA, input$projcompEnd),
-                      ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber/1e3, na.rm = TRUE))) +
-      {if(input$projcompFuture=="Szcenárióelemzés") geom_vline(xintercept = input$projcompDeltaDate)}
+    if(!is.null(sims)) {
+      ggplot(sims, aes(x = Date,y = CaseNumber, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
+        {if(input$projcompLogy) scale_y_log10(labels = sepform) else scale_y_continuous(labels = sepform)} +
+        geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
+        geom_ribbon(data = subset(sims, .id==0), aes(y = med, ymin = lwr, ymax = upr), alpha = 0.2) +
+        geom_line(data = subset(sims, .id==0), aes(y = med), size = 1.5) +
+        geom_point(data = subset(sims, is.na(.id)), size = 3, color = "black")  +
+        labs(x = "Dátum", y = "Napi esetszám [fő/nap]") + guides(color = FALSE, fill = FALSE) +
+        coord_cartesian(xlim = c.Date(NA, input$projcompEnd),
+                        ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber, na.rm = TRUE))) +
+        geom_vline(xintercept = rhandsontable::hot_to_r(input$projcompInput)$Date)
+    }
   })
   
   output$projcompTab <- rhandsontable::renderRHandsontable({
-    sims <- dataInputProjcomp()[.id=="CI",c("Date", "med", "lwr", "upr")]
-    sims$med <- round(sims$med/1e3, 1)
-    sims$lwr <- round(sims$lwr/1e3, 1)
-    sims$upr <- round(sims$upr/1e3, 1)
+    sims <- round_dt(dataInputProjcomp()[.id=="CI",c("Date", "med", "lwr", "upr")], 0)
     sims$Pred <- paste0(sims$med, " (", sims$lwr, "-", sims$upr, ")")
     rhandsontable::rhandsontable(sims[, c("Date", "Pred")],
-                                 colHeaders = c("Dátum", "Becsült napi esetszám (95%-os CI) [ezer fő/nap]"), readOnly = TRUE)
+                                 colHeaders = c("Dátum", "Becsült napi esetszám (95%-os CI) [fő/nap]"), readOnly = TRUE)
   })
   
-  output$projcompText <- renderText({
-    paste0("A modellben az inkubációs idő átlagosan ", round(1/mle[["alpha"]], 1), " nap, a fertőzőképesség hossza átlagosan ",
-           round(1/mle[["gamma"]], 1), " nap, a reprodukciós szám ", round(mle[["Beta"]]/mle[["gamma"]], 2), ".")
-  })
+  observeEvent(input$projcompAddrow, {
+    values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
+    values$Rs <- rbind(values$Rs, data.table(Date = max(values$Rs$Date)+7, R = 2))
+  } )
+  
+  observeEvent(input$projcompDeleterow, {
+    values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
+    if(nrow(values$Rs)>1) values$Rs <- values$Rs[-nrow(values$Rs)]  
+  } )
   
   output$cfrGraph <- renderPlot({
-    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf)
+    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf, 14)
     ggplot(res, aes(x = Date, y = value*100, group = `Típus`, color = `Típus`)) + geom_point() + geom_line() +
       {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100, alpha=0.2, color = `Típus`, fill = `Típus`))} +
       coord_cartesian(ylim = c(NA, max(res[value>0]$upr*100))) + guides(alpha = FALSE) +
@@ -481,7 +521,7 @@ server <- function(input, output, session) {
   })
   
   output$cfrTab <- rhandsontable::renderRHandsontable({
-    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf)
+    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf, 14)
     res$lwr <- res$lwr*100
     res$value <- res$value*100
     res$upr <- res$upr*100
@@ -504,7 +544,7 @@ server <- function(input, output, session) {
   })
   
   output$cfrUnderdetTab <- rhandsontable::renderRHandsontable({
-    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95)
+    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95, 14)
     rhandsontable::rhandsontable(RawData[,.(Date,CumCaseNumber,
                                             CumCaseNumber*tail(res[`Típus`=="Korrigált"]$value,1)/input$cfrUnderdetBench*100)],
                                  colHeaders = c("Dátum", "Jelentett kumulált esetszám [fő]", "Korrigált kumulált esetszám [fő]"),
@@ -512,7 +552,7 @@ server <- function(input, output, session) {
   })
   
   output$cfrUnderdetText <- renderText({
-    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95)
+    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95, 14)
     paste0("Az utolsó korrigált halálozás a hospitalizáció-halál idő megadott paramétereivel ",
            round(tail(res[`Típus`=="Korrigált"]$value,1)*100,1), "%. Ez a megadott ", input$cfrUnderdetBench, "%-os ",
            "benchmark halálozási arányt figyelembe véve ",

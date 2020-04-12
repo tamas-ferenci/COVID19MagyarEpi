@@ -16,8 +16,9 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, dev = "cairo_pdf")
 options(digits = 3, knitr.kable.NA = "")
 RawData <- readRDS("RawData.dat")
 source("EpiHelpers.R", encoding = "UTF-8")
-resGr <- grData(predData(RawData, "Poisson", 95)$m, params$reportSImu, params$reportSIsd)
-resGrSw <- grSwData(RawData, lapply( 1:(nrow(RawData)-7+1), function(i) predData(RawData[i:(i+7-1)], "Poisson", 95)$m ),
+resGr <- grData(predData(RawData, "Exponenciális", "Poisson", 95)$m, params$reportSImu, params$reportSIsd)
+resGrSw <- grSwData(RawData, lapply( 1:(nrow(RawData)-7+1), function(i) predData(RawData[i:(i+7-1)], "Exponenciális",
+                                                                                 "Poisson", 95)$m ),
                     params$reportSImu, params$reportSIsd, 7)
 resBranch <- branchData(RawData, params$reportSImu, params$reportSIsd)
 resBranchSw <- branchSwData(RawData, params$reportSImu, params$reportSIsd, 7)
@@ -25,13 +26,13 @@ resBranchSw <- branchSwData(RawData, params$reportSImu, params$reportSIsd, 7)
 
 # Járványgörbe
 
-A járvány jelenlegi görbéje, az illesztett exponenciális görbével és LOESS nemparaméteres simítóval, logaritmikus függőleges tengellyel:
+A járvány jelenlegi görbéje a rá illesztett simítógörbével, logaritmikus függőleges tengellyel:
 
 ```{r}
-epicurvePlot(predData(RawData, "Poisson", params$reportConf)$pred, TRUE, TRUE, TRUE, TRUE, params$reportConf)
+epicurvePlot(predData(RawData, "Exponenciális", "Poisson", params$reportConf)$pred, TRUE, FALSE, TRUE, TRUE, params$reportConf)
 ```
 
-`r grText(predData(RawData, "Poisson", params$reportConf)$m)`
+`r grText(predData(RawData, "Exponenciális", "Poisson", params$reportConf)$m, "Exponenciális")`
 
 # Előrejelzések
 
@@ -40,13 +41,13 @@ epicurvePlot(predData(RawData, "Poisson", params$reportConf)$pred, TRUE, TRUE, T
 Grafikus előrejelzés a következő hétre:
 
 ```{r}
-epicurvePlot(predData(RawData, "Poisson", params$reportConf, NA, 7)$pred, TRUE, TRUE, FALSE, TRUE, NA)
+epicurvePlot(predData(RawData, "Exponenciális", "Poisson", params$reportConf, NA, 7)$pred, TRUE, TRUE, FALSE, TRUE, NA)
 ```
 
 Számszerű előrejelzések a következő hétre:
 
 ```{r}
-res <- round_dt(predData(RawData, "Poisson", params$reportConf, NA, 7)$pred)
+res <- round_dt(predData(RawData, "Exponenciális", "Poisson", params$reportConf, NA, 7)$pred)
 res$Pred <-  paste0(res$fit, " (", res$lwr, "-", res$upr, ")")
 res <- res[!duplicated(Date)]
 knitr::kable(res[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
@@ -73,7 +74,7 @@ Számszerű adatok:
 
 ```{r}
 knitr::kable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum"),
-                         `Érték` = as.numeric(summary(resGr$R))))
+                        `Érték` = as.numeric(summary(resGr$R))))
 ```
 
 ### 7 napos csúszóablak
