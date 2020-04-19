@@ -7,6 +7,9 @@ RawData <- readRDS("RawData.dat")
 source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
 Sys.setlocale(locale = "hu_HU.utf8")
+options(mc.cores = parallel::detectCores())
+modCorrected <- readRDS("CFR_corrected_stan.rds")
+modRealtime <- readRDS("CFR_realtime_stan.rds")
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -273,7 +276,7 @@ ui <- fluidPage(
     tabPanel("Halálozási arány és aluldetektálás",
              fluidPage(
                tabsetPanel(
-                 tabPanel("Nyers és korrigált halálozási arány",
+                 tabPanel("Halálozási arány",
                           conditionalPanel("input.cfrType=='Grafikon'", plotOutput("cfrGraph")),
                           conditionalPanel("input.cfrType=='Táblázat'", rhandsontable::rHandsontableOutput("cfrTab")),
                           hr(),
@@ -283,6 +286,12 @@ ui <- fluidPage(
                                    checkboxInput("cfrCi", "Konfidenciaintervallum megjelenítése"),
                                    conditionalPanel("input.cfrCi==1",
                                                     numericInput("cfrConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
+                            ),
+                            column(3,
+                                   conditionalPanel("input.cfrType=='Grafikon'",
+                                                    checkboxGroupInput("cfrToplot", "Megjelenítendő halálozási arányok",
+                                                                       c("Nyers", "Korrigált", "Valós idejű"),
+                                                                       selected = c("Nyers", "Korrigált")))
                             ),
                             column(5,
                                    numericInput("cfrHDTmu", "A hospitalizáció-halál idő várható értéke:", 13, 0.1, 20, 0.1),
@@ -314,7 +323,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.20"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.21"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -505,21 +514,28 @@ server <- function(input, output, session) {
   observeEvent(input$projcompAddrow, {
     values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
     values$Rs <- rbind(values$Rs, data.table(Date = max(values$Rs$Date)+7, R = 2))
-  } )
+  })
   
   observeEvent(input$projcompDeleterow, {
     values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
     if(nrow(values$Rs)>1) values$Rs <- values$Rs[-nrow(values$Rs)]  
-  } )
+  })
   
-  dataInputCfr <- reactive(cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf))
+  dataInputCfrMCMC <- reactive(cfrMCMC(RawData, modCorrected, modRealtime, input$cfrHDTmu, input$cfrHDTsd))
+  
+  dataInputCfr <- reactive({
+    MCMCres <- dataInputCfrMCMC()
+    cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, MCMCres, input$cfrConf)
+  })
   
   output$cfrGraph <- renderPlot({
     res <- dataInputCfr()
-    ggplot(res, aes(x = Date, y = value*100, group = `Típus`, color = `Típus`)) + geom_point() + geom_line() +
-      {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100, alpha=0.2, color = `Típus`, fill = `Típus`))} +
-      coord_cartesian(ylim = c(NA, max(res[value>0]$upr*100))) + guides(alpha = FALSE) +
-      labs(x = "Dátum", y = "Halálozási arány [%]")
+    pal <- scales::hue_pal()(3)
+    ggplot(subset(res, `Típus`%in%input$cfrToplot), aes(x = Date, y = value*100, color = `Típus`, fill = `Típus`)) +
+      geom_point() + geom_line() + {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100), alpha = 0.2)} +
+      coord_cartesian(ylim = c(0, 40)) + labs(x = "Dátum", y = "Halálozási arány [%]") +
+      scale_color_manual(values = c("Nyers" = pal[1], "Korrigált" = pal[2], "Valós idejű" = pal[3])) +
+      scale_fill_manual(values = c("Nyers" = pal[1], "Korrigált" = pal[2], "Valós idejű" = pal[3]))
   })
   
   output$cfrTab <- rhandsontable::renderRHandsontable({
@@ -534,18 +550,31 @@ server <- function(input, output, session) {
     res$Corrected <- if(input$cfrCi) ifelse(!is.na(res$`value_Korrigált`), paste0(res$`value_Korrigált`, " (",
                                                                                   res$`lwr_Korrigált`, "-", res$`upr_Korrigált`,
                                                                                   ")"), NA) else res$`value_Korrigált`
-    rhandsontable::rhandsontable(res[, .(Date, Crude, Corrected)],
+    res$Realtime <- if(input$cfrCi) ifelse(!is.na(res$`value_Valós idejű`), paste0(res$`value_Valós idejű`, " (",
+                                                                                   res$`lwr_Valós idejű`, "-",
+                                                                                   res$`upr_Valós idejű`, ")"), NA) else
+                                                                                     res$`value_Valós idejű`
+    rhandsontable::rhandsontable(res[, .(Date, Crude, Corrected, Realtime)],
                                  colHeaders = c("Dátum",
                                                 if(input$cfrCi) paste0("Nyers halálozási arány (", input$cfrConf,
                                                                        "%-os CI) [%]") else
                                                                          "Nyers halálozási arány [%]",
                                                 if(input$cfrCi) paste0("Korrigált halálozási arány (", input$cfrConf,
                                                                        "%-os CI) [fő]") else
-                                                                         "Korrigált halálozási arány [%]"),
+                                                                         "Korrigált halálozási arány [%]",
+                                                if(input$cfrCi) paste0("Valós idejű halálozási arány (", input$cfrConf,
+                                                                       "%-os CI) [fő]") else
+                                                                         "Valós idejű halálozási arány [%]"),
                                  readOnly = TRUE)
   })
   
-  dataInputCfrUnderdet <- reactive(cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd))
+  dataInputCfrUnderdetMCMC <- reactive(cfrMCMC(RawData, modCorrected, modRealtime,
+                                               input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd))
+  
+  dataInputCfrUnderdet <- reactive({
+    MCMCres <- dataInputCfrUnderdetMCMC()
+    cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, MCMCres)
+  })
   
   output$cfrUnderdetTab <- rhandsontable::renderRHandsontable({
     res <- dataInputCfrUnderdet()

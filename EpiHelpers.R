@@ -57,7 +57,7 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
   if(!is.null(family)) parlist <- c(parlist, list(family = family))
   if(!is.null(startval)) parlist <- c(parlist, list(start = startval))
   m <- do.call(fitfun, parlist)
-
+  
   #trafo <- if(fform!="Logisztikus") exp else identity
   trafo <- exp
   pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
@@ -149,32 +149,25 @@ branchSwData <- function(rd, what = "CaseNumber", SImu, SIsd, windowlen) {
   res
 }
 
-cfrData <- function(rd, HDTmu, HDTsd, conf = 95, start = NULL, end = NULL) {
-  if(is.null(start)) start <- 1
-  if(is.null(end)) end <- nrow(rd)
-  res <- data.table(t(mapply(function(...) with(binom.test(...), c(estimate, conf.int)),
-                             rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf/100))))
-  names(res) <- c("value", "lwr", "upr")
-  res$`Típus` <- "Nyers"
-  res$Date <- rd$Date
+cfrMCMC <- function(rd, modCorrected, modRealtime, HDTmu, HDTsd) {
   discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(HDTmu)-log(HDTsd^2/HDTmu^2+1)/2,
                                     sdlog = sqrt(log(HDTsd^2/HDTmu^2+1)))
-  mll <- function(p, t, rd) {
-    -dbinom(rd$CumDeathNumber[t],round(sum(sapply(1:t, function(i)
-      sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*discrdist$d(j)))))), p, log = TRUE)
-  }
-  res2 <- data.table(t(sapply(start:end, function(s) {
-    temp <- NULL
-    tryCatch(temp <- bbmle::mle2(mll, list(p = 0.01), data = list(rd = rd, t = s), method = "Brent",
-                        lower = 1e-10, upper = 1-1e-10), error = function(e) NULL)
-    if(is.null(temp)) rep(NA,3) else {
-      temp2 <- NULL
-      temp2 <- tryCatch(bbmle::profile(temp), error = function(e) NULL)
-      if(is.null(temp2)) rep(NA,3) else c(temp@coef,bbmle::confint(temp2, "p", conf/100))
-    }
-  })))
-  names(res2) <- c("value", "lwr", "upr")
-  res2$`Típus` <- "Korrigált"
-  res2$Date <- rd[start:end]$Date
-  rbind(res,res2)
+  u <- round(sapply(1:nrow(rd), function(t) sum(sapply(1:t, function(i)
+    sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*discrdist$d(j)))))))
+  u2 <- round(sapply(1:nrow(rd), function(t) sum(sapply(0:(t-1), function(j) rd$CaseNumber[t-j]*discrdist$d(j)))))
+  fitCorrected <- rstan::sampling(modCorrected, data = list(N = nrow(rd), CumDeathNumber = rd$CumDeathNumber, u = u))
+  fitRealtime <- rstan::sampling(modRealtime, data = list(N = nrow(rd), DeathNumber = rd$DeathNumber, u2 = u2))
+  list(fitCorrected = fitCorrected, fitRealtime = fitRealtime)
+}
+
+cfrData <- function(rd, HDTmu, HDTsd, MCMCres, conf = 95) {
+  conf <- conf/100
+  rbind(data.table(t(mapply(function(...) with(binom.test(...),
+                                               c(value = as.numeric(estimate), lwr = conf.int[1], upr = conf.int[2])),
+                            rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf))),
+                   `Típus` = "Nyers", Date = rd$Date),
+        cbind(setNames(data.table(rstan::summary(MCMCres$fitCorrected, "p", c(0.5, (1-conf)/2, 1-(1-conf)/2))$summary[,4:6]),
+                       c("value", "lwr", "upr")), `Típus` = "Korrigált", Date = rd$Date),
+        cbind(setNames(data.table(rstan::summary(MCMCres$fitRealtime, "p", c(0.5, (1-conf)/2, 1-(1-conf)/2))$summary[,4:6]),
+                       c("value", "lwr", "upr")), `Típus` = "Valós idejű", Date = rd$Date))
 }
