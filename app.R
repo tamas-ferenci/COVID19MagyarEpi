@@ -314,7 +314,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.19"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.20"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -512,8 +512,10 @@ server <- function(input, output, session) {
     if(nrow(values$Rs)>1) values$Rs <- values$Rs[-nrow(values$Rs)]  
   } )
   
+  dataInputCfr <- reactive(cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf))
+  
   output$cfrGraph <- renderPlot({
-    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf, 14)
+    res <- dataInputCfr()
     ggplot(res, aes(x = Date, y = value*100, group = `Típus`, color = `Típus`)) + geom_point() + geom_line() +
       {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100, alpha=0.2, color = `Típus`, fill = `Típus`))} +
       coord_cartesian(ylim = c(NA, max(res[value>0]$upr*100))) + guides(alpha = FALSE) +
@@ -521,7 +523,7 @@ server <- function(input, output, session) {
   })
   
   output$cfrTab <- rhandsontable::renderRHandsontable({
-    res <- cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, input$cfrConf, 14)
+    res <- dataInputCfr()
     res$lwr <- res$lwr*100
     res$value <- res$value*100
     res$upr <- res$upr*100
@@ -543,8 +545,10 @@ server <- function(input, output, session) {
                                  readOnly = TRUE)
   })
   
+  dataInputCfrUnderdet <- reactive(cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd))
+  
   output$cfrUnderdetTab <- rhandsontable::renderRHandsontable({
-    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95, 14)
+    res <- dataInputCfrUnderdet()
     rhandsontable::rhandsontable(RawData[,.(Date,CumCaseNumber,
                                             CumCaseNumber*tail(res[`Típus`=="Korrigált"]$value,1)/input$cfrUnderdetBench*100)],
                                  colHeaders = c("Dátum", "Jelentett kumulált esetszám [fő]", "Korrigált kumulált esetszám [fő]"),
@@ -552,7 +556,7 @@ server <- function(input, output, session) {
   })
   
   output$cfrUnderdetText <- renderText({
-    res <- cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, 95, 14)
+    res <- dataInputCfrUnderdet()
     paste0("Az utolsó korrigált halálozás a hospitalizáció-halál idő megadott paramétereivel ",
            round(tail(res[`Típus`=="Korrigált"]$value,1)*100,1), "%. Ez a megadott ", input$cfrUnderdetBench, "%-os ",
            "benchmark halálozási arányt figyelembe véve ",

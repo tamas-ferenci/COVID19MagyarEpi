@@ -25,9 +25,8 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
   if(fform%in%c("Exponenciális", "Hatvány")&!is.na(deltar)) fitformula <- paste(fitformula, "+offset(", deltar,
                                                                                 "*Deviated*(NumDate-", sum(!rd$Deviated), "))")
   fitformula <- as.formula(fitformula)
-  
   family <- NULL
-  startval <- if(fform=="Logisztikus") c(1000, 10, 1) else NULL
+  startval <- NULL
   if(distr=="Lognormális") {
     fitfun <- if(fform!="Logisztikus") lm else gnm::gnm
     data <- if(fform!="Logisztikus") rd[rd[[what]]!=0] else rd
@@ -42,7 +41,19 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
     if(fform=="Logisztikus") family <- quasipoisson(link = "log")
     data <- rd
   }
-  parlist <- list(formula = fitformula, data = data[NumDate>=wind[1]&NumDate<=wind[2]])
+  parlist <- list(formula = fitformula, data = data[NumDate>=wind[1]&NumDate<=wind[2]&!is.na(data[[what]])])
+  startval <- if(fform=="Logisztikus") {
+    z <- parlist$data[[what]]
+    rng <- range(z)
+    dz <- diff(rng)
+    z <- (z - rng[1L] + 0.05 * dz)/(1.1 * dz)
+    parlist$data[["z"]] <- log(z/(1 - z))
+    aux <- coef(lm(as.formula(paste(what, "~ z")), parlist$data))
+    fit <- tryCatch(nls(as.formula(paste(what, "~ 1/(1 + exp((xmid - NumDate)/scal))")), data = parlist$data, 
+                        start = list(xmid = aux[[1L]], scal = aux[[2L]]), algorithm = "plinear"),
+                    error = function(e) NULL)
+    if(!is.null(fit)) coef(fit)[c(".lin", "xmid", "scal")] else c(1000, 100, 2)
+  } else NULL
   if(!is.null(family)) parlist <- c(parlist, list(family = family))
   if(!is.null(startval)) parlist <- c(parlist, list(start = startval))
   m <- do.call(fitfun, parlist)
@@ -138,7 +149,9 @@ branchSwData <- function(rd, what = "CaseNumber", SImu, SIsd, windowlen) {
   res
 }
 
-cfrData <- function(rd, HDTmu, HDTsd, conf, start) {
+cfrData <- function(rd, HDTmu, HDTsd, conf = 95, start = NULL, end = NULL) {
+  if(is.null(start)) start <- 1
+  if(is.null(end)) end <- nrow(rd)
   res <- data.table(t(mapply(function(...) with(binom.test(...), c(estimate, conf.int)),
                              rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf/100))))
   names(res) <- c("value", "lwr", "upr")
@@ -150,13 +163,18 @@ cfrData <- function(rd, HDTmu, HDTsd, conf, start) {
     -dbinom(rd$CumDeathNumber[t],round(sum(sapply(1:t, function(i)
       sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*discrdist$d(j)))))), p, log = TRUE)
   }
-  res2<-data.table(t(sapply(start:nrow(rd), function(s) {
-    temp <- bbmle::mle2(mll, list(p = 0.01), data = list(rd = rd, t = s), method = "Brent",
-                        lower = 1e-10, upper = 1-1e-10)
-    c(temp@coef,bbmle::confint(bbmle::profile(temp), "p", conf/100))
+  res2 <- data.table(t(sapply(start:end, function(s) {
+    temp <- NULL
+    tryCatch(temp <- bbmle::mle2(mll, list(p = 0.01), data = list(rd = rd, t = s), method = "Brent",
+                        lower = 1e-10, upper = 1-1e-10), error = function(e) NULL)
+    if(is.null(temp)) rep(NA,3) else {
+      temp2 <- NULL
+      temp2 <- tryCatch(bbmle::profile(temp), error = function(e) NULL)
+      if(is.null(temp2)) rep(NA,3) else c(temp@coef,bbmle::confint(temp2, "p", conf/100))
+    }
   })))
   names(res2) <- c("value", "lwr", "upr")
   res2$`Típus` <- "Korrigált"
-  res2$Date <- rd[start:nrow(rd)]$Date
+  res2$Date <- rd[start:end]$Date
   rbind(res,res2)
 }
