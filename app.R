@@ -10,6 +10,7 @@ Sys.setlocale(locale = "hu_HU.utf8")
 options(mc.cores = parallel::detectCores())
 modCorrected <- readRDS("CFR_corrected_stan.rds")
 modRealtime <- readRDS("CFR_realtime_stan.rds")
+cfrsensgrid <- readRDS("cfrsensgrid.dat")
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -294,8 +295,8 @@ ui <- fluidPage(
                                                                        selected = c("Nyers", "Korrigált")))
                             ),
                             column(5,
-                                   numericInput("cfrHDTmu", "A hospitalizáció-halál idő várható értéke:", 13, 0.1, 20, 0.1),
-                                   numericInput("cfrHDTsd", "A hospitalizáció-halál idő szórása:", 12.7, 0.1, 20, 0.1)
+                                   numericInput("cfrDDTmu", "A diagnózis-halál idő várható értéke:", 13, 0.1, 20, 0.1),
+                                   numericInput("cfrDDTsd", "A diagnózis-halál idő szórása:", 12.7, 0.1, 20, 0.1)
                             )
                           )
                  ),
@@ -307,9 +308,15 @@ ui <- fluidPage(
                                  numericInput("cfrUnderdetBench", "Benchmark halálozási arány", 1.38, 0, 100, 0.01)
                           ),
                           column(5,
-                                 numericInput("cfrUnderdetHDTmu", "A hospitalizáció-halál idő várható értéke:",
-                                              13, 0.1, 20, 0.1),
-                                 numericInput("cfrUnderdetHDTsd", "A hospitalizáció-halál idő szórása:", 12.7, 0.1, 20, 0.1)
+                                 numericInput("cfrUnderdetDDTmu", "A diagnózis-halál idő várható értéke:", 13, 0.1, 20, 0.1),
+                                 numericInput("cfrUnderdetDDTsd", "A diagnózis-halál idő szórása:", 12.7, 0.1, 20, 0.1)
+                          )
+                 ),
+                 tabPanel("Érzékenységvizsgálat",
+                          plotOutput("cfrSensGraph"),
+                          hr(),
+                          column(3,
+                                 numericInput("cfrSensBench", "Benchmark halálozási arány", 1.38, 0, 100, 0.01)
                           )
                  ),
                  tabPanel("Magyarázat", withMathJax(includeMarkdown("cfrExplanation.md")))
@@ -323,7 +330,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.21"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.22"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -521,11 +528,11 @@ server <- function(input, output, session) {
     if(nrow(values$Rs)>1) values$Rs <- values$Rs[-nrow(values$Rs)]  
   })
   
-  dataInputCfrMCMC <- reactive(cfrMCMC(RawData, modCorrected, modRealtime, input$cfrHDTmu, input$cfrHDTsd))
+  dataInputCfrMCMC <- reactive(cfrMCMC(RawData, modCorrected, modRealtime, input$cfrDDTmu, input$cfrDDTsd))
   
   dataInputCfr <- reactive({
     MCMCres <- dataInputCfrMCMC()
-    cfrData(RawData, input$cfrHDTmu, input$cfrHDTsd, MCMCres, input$cfrConf)
+    cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, MCMCres, input$cfrConf)
   })
   
   output$cfrGraph <- renderPlot({
@@ -569,11 +576,11 @@ server <- function(input, output, session) {
   })
   
   dataInputCfrUnderdetMCMC <- reactive(cfrMCMC(RawData, modCorrected, modRealtime,
-                                               input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd))
+                                               input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd))
   
   dataInputCfrUnderdet <- reactive({
     MCMCres <- dataInputCfrUnderdetMCMC()
-    cfrData(RawData, input$cfrUnderdetHDTmu, input$cfrUnderdetHDTsd, MCMCres)
+    cfrData(RawData, input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd, MCMCres)
   })
   
   output$cfrUnderdetTab <- rhandsontable::renderRHandsontable({
@@ -592,7 +599,18 @@ server <- function(input, output, session) {
            round(tail(res[`Típus`=="Korrigált"]$value,1)/input$cfrUnderdetBench*100,1),
            "-szoros valódi esetszámot feltételez a jelentetthez képest.")
   })
-  
+
+  output$cfrSensGraph <- renderPlot({
+    cfrsensgrid$`Korrigált kumulált esetszám [fő]` <- cfrsensgrid$`Korrigált halálozási arány [%]`/input$cfrSensBench*
+      tail(RawData$CumCaseNumber,1)
+    ggplot(cfrsensgrid, aes(x = DDTmu, y = DDTsd)) + geom_tile(aes(fill = `Korrigált halálozási arány [%]`)) +
+      scale_fill_continuous(guide = guide_colorbar(order = 1)) +
+      ggnewscale::new_scale_fill() + geom_tile(aes(fill = `Korrigált kumulált esetszám [fő]`)) +
+      scale_fill_continuous(guide = guide_colorbar(order = 2)) + theme(legend.position = "right", legend.box = "horizontal") +
+      labs(x = "A diagnózis-halál idő várható értéke", y = "A diagnózis-halál idő szórása")
+    
+  })
+    
   output$report <- downloadHandler(
     filename <- paste0("JarvanyugyiJelentes_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf" ),
     content = function(file) {

@@ -149,9 +149,9 @@ branchSwData <- function(rd, what = "CaseNumber", SImu, SIsd, windowlen) {
   res
 }
 
-cfrMCMC <- function(rd, modCorrected, modRealtime, HDTmu, HDTsd) {
-  discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(HDTmu)-log(HDTsd^2/HDTmu^2+1)/2,
-                                    sdlog = sqrt(log(HDTsd^2/HDTmu^2+1)))
+cfrMCMC <- function(rd, modCorrected, modRealtime, DDTmu, DDTsd) {
+  discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(DDTmu)-log(DDTsd^2/DDTmu^2+1)/2,
+                                    sdlog = sqrt(log(DDTsd^2/DDTmu^2+1)))
   u <- round(sapply(1:nrow(rd), function(t) sum(sapply(1:t, function(i)
     sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*discrdist$d(j)))))))
   u2 <- round(sapply(1:nrow(rd), function(t) sum(sapply(0:(t-1), function(j) rd$CaseNumber[t-j]*discrdist$d(j)))))
@@ -160,7 +160,7 @@ cfrMCMC <- function(rd, modCorrected, modRealtime, HDTmu, HDTsd) {
   list(fitCorrected = fitCorrected, fitRealtime = fitRealtime)
 }
 
-cfrData <- function(rd, HDTmu, HDTsd, MCMCres, conf = 95) {
+cfrData <- function(rd, DDTmu, DDTsd, MCMCres, conf = 95) {
   conf <- conf/100
   rbind(data.table(t(mapply(function(...) with(binom.test(...),
                                                c(value = as.numeric(estimate), lwr = conf.int[1], upr = conf.int[2])),
