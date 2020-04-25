@@ -330,7 +330,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.22"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.23"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -374,7 +374,8 @@ server <- function(input, output, session) {
   
   output$projempGraph <- renderPlot({
     epicurvePlot(dataInputProjemp()$pred, input$projempOutcome, input$projempLogy, TRUE, FALSE, input$projempCi, NA,
-                 input$projempFuture!="Tényadat", input$projempDeltarDate)
+                 input$projempFuture!="Tényadat", input$projempDeltarDate,
+                 if(any(input$projempWindow!=c(1, nrow(RawData)))) RawData$Date[input$projempWindow] else NA)
   })
   
   output$projempGraphText <- renderText({
@@ -588,7 +589,7 @@ server <- function(input, output, session) {
     rhandsontable::rhandsontable(RawData[,.(Date,CumCaseNumber,
                                             CumCaseNumber*tail(res[`Típus`=="Korrigált"]$value,1)/input$cfrUnderdetBench*100)],
                                  colHeaders = c("Dátum", "Jelentett kumulált esetszám [fő]", "Korrigált kumulált esetszám [fő]"),
-                                 readOnly = TRUE)
+                                 readOnly = TRUE, height = 500)
   })
   
   output$cfrUnderdetText <- renderText({
