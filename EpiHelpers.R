@@ -70,14 +70,6 @@ r2R0gamma <- function(r, si_mean, si_sd) {
   (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
 }
 
-lm2R0gamma_sample <- function(x, si_mean, si_sd, n = 1000) {
-  df <- nrow(x$model) - 2
-  r <- x$coefficients[2]
-  std_r <- stats::coef(summary(x))[, "Std. Error"][2]
-  r_sample <- r + std_r * stats::rt(n, df)
-  r2R0gamma(r_sample, si_mean, si_sd)
-}
-
 round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, lapply(.SD, function(x)
   if(is.numeric(x)&!is.integer(x)) format(round(x, digits), nsmall = digits, trim = TRUE) else x)]
 
@@ -122,31 +114,55 @@ grText <- function(m, fun, deltar = 0, future = FALSE, deltarDate = NA, startDat
   }
 }
 
-grData <- function(m, SImu, SIsd) {
-  data.frame(R = lm2R0gamma_sample(m, SImu, SIsd))
-}
-
-grSwData <- function(rd, ms, SImu, SIsd, windowlen) {
-  res <- lapply(ms, function(m) lm2R0gamma_sample(m, SImu, SIsd))
-  res <- data.table(do.call(rbind, lapply(res, function(x)
-    c(mean(x, na.rm = TRUE), quantile(x, c(0.025, 0.975), na.rm = TRUE)))), check.names = TRUE)
-  res$Date <- rd$Date[windowlen:nrow(rd)]
+reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
+  if(any(is.na(wind))) wind <- c(1, length(CaseNumber))
+  discrGT <- R0::generation.time("gamma", c(SImu, SIsd))
+  res <- rbind(t(sapply(R0::estimate.R(CaseNumber, discrGT, methods = c("ML", "EG"), begin = wind[1],
+                                       end = wind[2])$estimates, function(x) c(x$R, x$conf.int))),
+               r2R0gamma(with(R0::est.R0.EG(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
+                              c(r, unlist(conf.int.r))), SImu, SIsd),
+               unlist(EpiEstim::estimate_R(CaseNumber, method = "parametric_si",
+                                           config = EpiEstim::make_config(list(mean_si = SImu, std_si = SIsd,
+                                                                               t_start = max(c(2, wind[1])),
+                                                                               t_end = wind[2])))$R[c("Median(R)",
+                                                                                                      "Quantile.0.025(R)",
+                                                                                                      "Quantile.0.975(R)")]),
+               with(R0::smooth.Rt(R0::est.R0.TD(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
+                                  wind[2]-wind[1]+1), c(R, unlist(conf.int))),
+               # unlist(EpiEstim::wallinga_teunis(CaseNumber, "parametric_si",
+               #                                  list(method = "parametric_si",mean_si = SImu, std_si = SIsd,
+               #                                       t_start = max(c(2, wind[1])), t_end = wind[2], n_sim=100))$R[
+               #                                         c("Mean(R)","Quantile.0.025(R)", "Quantile.0.975(R)")]),
+               with(R0::smooth.Rt(R0::est.R0.SB(CaseNumber, discrGT, begin = max(c(3L, wind[1])), end = wind[2]),
+                                  wind[2]-max(c(3, wind[1]))+1), c(R, unlist(conf.int))))
+  res <- data.table(res)
+  colnames(res) <- c("R", "lwr", "upr")
+  res$`Módszer` <- c("White", "Wallinga-Lipitsch (diszkretizált)", "Wallinga-Lipitsch (egzakt)", "Cori", "Wallinga-Teunis",
+                  "Bettencourt-Ribeiro")
   res
 }
 
-branchData <- function(rd, what = "CaseNumber", SImu, SIsd, wind = NA) {
-  if(any(is.na(wind))) wind <- c(max(c(2, rd$NumDate[1])), tail(rd$NumDate,1))
-  data.table(R = EpiEstim::sample_posterior_R(EpiEstim::estimate_R(
-    rd[[what]], method = "parametric_si",
-    config = EpiEstim::make_config(list(mean_si = SImu, std_si = SIsd, t_start = wind[1], t_end = wind[2])))))
-}
-
-branchSwData <- function(rd, what = "CaseNumber", SImu, SIsd, windowlen) {
-  res <- EpiEstim::estimate_R(rd[[what]], method = "parametric_si",
-                              config = EpiEstim::make_config(list(
-                                t_start = seq(2, nrow(rd)-windowlen+1), t_end = (2+windowlen-1):nrow(rd),
-                                mean_si = SImu, std_si = SIsd)))$R
-  res$Date <- rd$Date[(windowlen+1):nrow(rd)]
+reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
+  discrGT <- R0::generation.time("gamma", c(SImu, SIsd))
+  res <- rbind(data.table(EpiEstim::estimate_R(CaseNumber, "parametric_si",
+                                               config = EpiEstim::make_config(method = "parametric_si",mean_si = SImu,
+                                                                              std_si = SIsd,
+                                                                              t_start = 2:(length(CaseNumber)-windowlen+1),
+                                                                              t_end = (windowlen+1):(length(CaseNumber))))$R[
+                                                                                c("Mean(R)", "Quantile.0.025(R)",
+                                                                                  "Quantile.0.975(R)")],
+                          NumDate = (windowlen+1):(length(CaseNumber)), `Módszer` = "Cori"),
+               data.table(t(sapply(1:(length(CaseNumber)-windowlen+1),
+                                   function(beg) with(R0::est.R0.EG(CaseNumber, discrGT, begin = beg,
+                                                                    end = as.integer(beg+windowlen-1L)),
+                                                      c(R, conf.int)))), NumDate = (windowlen):(length(CaseNumber)),
+                          `Módszer` = "Wallinga-Lipitsch Exp/Poi"),
+               with(R0::est.R0.TD(CaseNumber, discrGT, begin = 1L, end = length(CaseNumber)-1L),
+                    cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Wallinga-Teunis")),
+               with(R0::est.R0.SB(CaseNumber, discrGT, begin = 3L, end = length(CaseNumber)),
+                    cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Bettencourt-Ribeiro")),
+               use.names = FALSE)
+  colnames(res)[1:3] <- c("R", "lwr", "upr")
   res
 }
 
@@ -161,9 +177,12 @@ cfrMCMC <- function(rd, modCorrected, modRealtime, DDTmu, DDTsd) {
   list(fitCorrected = fitCorrected, fitRealtime = fitRealtime)
 }
 
+binom.test2 <- function(x, n, conf.level) if(n==0) list(estimate = NA, conf.int = c(NA, NA)) else
+  binom.test(x, n, conf.level = conf.level)
+
 cfrData <- function(rd, DDTmu, DDTsd, MCMCres, conf = 95) {
   conf <- conf/100
-  rbind(data.table(t(mapply(function(...) with(binom.test(...),
+  rbind(data.table(t(mapply(function(...) with(binom.test2(...),
                                                c(value = as.numeric(estimate), lwr = conf.int[1], upr = conf.int[2])),
                             rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf))),
                    `Típus` = "Nyers", Date = rd$Date),
