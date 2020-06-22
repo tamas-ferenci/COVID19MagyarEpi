@@ -4,6 +4,9 @@ library(data.table)
 
 RawData <- readRDS("RawData.dat")
 
+SImuDefault <- 4.7
+SIsdDefault <- 2.9
+
 source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
 Sys.setlocale(locale = "hu_HU.utf8")
@@ -97,7 +100,7 @@ ui <- fluidPage(
                             column(3,
                                    conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1",
                                                     radioButtons("epicurveDistr", "Eloszlás",
-                                                                 c( "Lognormális", "Poisson", "NB/QP"), selected = "Poisson"))
+                                                                 c("Lognormális", "Poisson", "NB/QP"), selected = "Poisson"))
                             )
                           )
                  ),
@@ -188,13 +191,13 @@ ui <- fluidPage(
                                    checkboxInput("reprRtCi", "Konfidenciaintervallum megjelenítése")),
                             column(3,
                                    checkboxGroupInput("reprRtMethods", "Módszerek",
-                                                      c("Cori", "Wallinga-Lipitsch Exp/Poi", "Wallinga-Teunis",
+                                                      c("Cori", "Wallinga-Lipsitch Exp/Poi", "Wallinga-Teunis",
                                                         "Bettencourt-Ribeiro"),
                                                       c("Cori", "Wallinga-Teunis", "Bettencourt-Ribeiro"))),
                             column(3,
                                    sliderInput("reprRtWindowlen", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1),
-                                   numericInput("reprRtSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("reprRtSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01),
+                                   numericInput("reprRtSImu", "A serial interval várható értéke:", SImuDefault, 0.01, 20, 0.01),
+                                   numericInput("reprRtSIsd", "A serial interval szórása:", SIsdDefault, 0.01, 20, 0.01),
                                    
                             )
                           )
@@ -209,8 +212,8 @@ ui <- fluidPage(
                                    sliderInput("reprWindow", "Ablakozás:", 1, nrow(RawData), c(1, nrow(RawData)), 1)
                             ),
                             column(3,
-                                   numericInput("reprSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-                                   numericInput("reprSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01)
+                                   numericInput("reprSImu", "A serial interval várható értéke:", SImuDefault, 0.01, 20, 0.01),
+                                   numericInput("reprSIsd", "A serial interval szórása:", SIsdDefault, 0.01, 20, 0.01)
                             )
                           )
                  ),
@@ -269,12 +272,12 @@ ui <- fluidPage(
     ),
     tabPanel("Automatikus jelentésgenerálás",
              numericInput("reportConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1),
-             numericInput("reportSImu", "A serial interval várható értéke:", 3.96, 0.01, 20, 0.01),
-             numericInput("reportSIsd", "A serial interval szórása:", 4.75, 0.01, 20, 0.01),
+             numericInput("reportSImu", "A serial interval várható értéke:", SImuDefault, 0.01, 20, 0.01),
+             numericInput("reportSIsd", "A serial interval szórása:", SIsdDefault, 0.01, 20, 0.01),
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.24"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.25"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -293,14 +296,13 @@ server <- function(input, output, session) {
   observe(updateDateInput(session, "projcompDeltaDate", max = input$projcompEnd))
   
   dataInputEpicurve <- reactive({
-    predData(RawData, input$epicurveOutcome, input$epicurveFform, input$epicurveDistr, input$epicurveConf, input$epicurveWindow)
+    predData(RawData, input$epicurveOutcome, input$epicurveFform, input$epicurveDistr, input$epicurveConf,
+             if(input$epicurveFunfit) input$epicurveWindow else NA)
   })
   
   output$epicurveGraph <- renderPlot({
-    epicurvePlot(dataInputEpicurve()$pred, input$epicurveOutcome, input$epicurveLogy, input$epicurveFunfit,
-                 input$epicurveLoessfit, input$epicurveCi, input$epicurveConf,
-                 wind = if(input$epicurveFunfit&any(input$epicurveWindow!=c(1, nrow(RawData))))
-                   RawData$Date[input$epicurveWindow] else NA)
+    epicurvePlot(dataInputEpicurve(), input$epicurveOutcome, input$epicurveLogy, input$epicurveFunfit,
+                 input$epicurveLoessfit, input$epicurveCi, input$epicurveConf)
   })
   
   output$epicurveText <- renderText(grText(dataInputEpicurve()$m, input$epicurveFform, startDate = min(RawData$Date)))
@@ -318,9 +320,8 @@ server <- function(input, output, session) {
   })
   
   output$projempGraph <- renderPlot({
-    epicurvePlot(dataInputProjemp()$pred, input$projempOutcome, input$projempLogy, TRUE, FALSE, input$projempCi, NA,
-                 input$projempFuture!="Tényadat", input$projempDeltarDate,
-                 if(any(input$projempWindow!=c(1, nrow(RawData)))) RawData$Date[input$projempWindow] else NA)
+    epicurvePlot(dataInputProjemp(), input$projempOutcome, input$projempLogy, TRUE, FALSE, input$projempCi, NA,
+                 input$projempFuture!="Tényadat", input$projempDeltarDate)
   })
   
   output$projempGraphText <- renderText({
@@ -347,8 +348,7 @@ server <- function(input, output, session) {
   output$reprGraph <- renderPlot({
     p1 <- ggplot(dataInputRepr(), aes(y = `Módszer`, x = R, xmin = lwr, xmax = upr)) + geom_point() + geom_errorbar() +
       geom_vline(xintercept = 1, color = "red") + expand_limits(x = 1) + labs(y = "")
-    p2 <- epicurvePlot(dataInputProjemp()$pred,
-                       wind = if(any(input$reprWindow!=c(1, nrow(RawData)))) RawData$Date[input$reprWindow] else NA)
+    p2 <- epicurvePlot(predData(RawData, wind = input$reprWindow))
     egg::ggarrange(p1, p2, ncol = 1, heights = c(2, 1))
   })
   
@@ -363,11 +363,12 @@ server <- function(input, output, session) {
   
   output$reprRtGraph <- renderPlot({
     pal <- scales::hue_pal()(4)
-    scalval <- c("Cori" = pal[1], "Wallinga-Lipitsch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3],
+    scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3],
                  "Bettencourt-Ribeiro" = pal[4])
     res <- merge(dataInputReprRt(), RawData)[`Módszer`%in%input$reprRtMethods]
     ggplot(res, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer`, fill = `Módszer`)) + geom_line() +
       geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +
+      labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
       {if(input$reprRtCi) geom_ribbon(alpha = 0.2)} +
       {if(!input$reprRtCi) coord_cartesian(ylim = c(NA, max(res$R)))}
@@ -470,7 +471,7 @@ server <- function(input, output, session) {
     pal <- scales::hue_pal()(3)
     scalval <- c("Nyers" = pal[1], "Korrigált" = pal[2], "Valós idejű" = pal[3])
     ggplot(subset(res, `Típus`%in%input$cfrToplot), aes(x = Date, y = value*100, color = `Típus`, fill = `Típus`)) +
-      geom_point() + geom_line() + {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100), alpha = 0.2)} +
+      geom_line() + {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100), alpha = 0.2)} +
       coord_cartesian(ylim = c(0, 40)) + labs(x = "Dátum", y = "Halálozási arány [%]") +
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval)
   })

@@ -13,7 +13,7 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
   if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
                                            CaseNumber = NA, DeathNumber = NA, CumCaseNumber = NA, CumDeathNumber = NA,
                                            NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
-  rd$Deviated <- (rd$Date >= deltardate)&is.na(rd[[what]])
+  rd$Deviated <- (rd$Date>=deltardate)&is.na(rd[[what]])
   crit.value <- qt(1-(1-level/100)/2, df = sum(!is.na(rd[[what]]))-2)
   if(fform=="Exponenciális") {
     fitformula <- paste(if(distr=="Lognormális") "log", "(", what, ")~Date")
@@ -63,7 +63,7 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
   pred <- data.table(rd, with(predict(m, newdata = rd, se.fit = TRUE),
                               data.table(fit = trafo(fit), lwr = trafo(fit - (crit.value * se.fit)),
                                          upr = trafo(fit + (crit.value * se.fit)))))
-  list(pred = pred, m = m)
+  list(pred = pred, m = m, wind = wind)
 }
 
 r2R0gamma <- function(r, si_mean, si_sd) {
@@ -76,19 +76,21 @@ round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, l
 sepform <- function(x) format(x, big.mark = " ", scientific = FALSE)
 
 epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE,
-                         loessfit = TRUE, ci = TRUE, conf = 95, delta = FALSE, deltadate = NA, wind = NA) {
-  pred$col <- is.na(pred[[what]])
-  ggplot(pred, aes_string(x = "Date", y = what)) +
-    {if(any(!is.na(wind))) annotate("rect", ymin = -Inf, ymax = +Inf, xmin = wind[1], xmax = wind[2], alpha = 0.1,
-                                    fill = "red")} +
+                         loessfit = TRUE, ci = TRUE, conf = 95, delta = FALSE, deltadate = NA) {
+  pred$pred$col <- is.na(pred$pred[[what]])
+  ggplot(pred$pred, aes_string(x = "Date", y = what)) +
+    {if(any(pred$wind!=c(1, nrow(pred$pred[!is.na(pred$pred[[what]])]))))
+      annotate("rect", ymin = -Inf, ymax = +Inf, xmin = pred$pred$Date[1]+pred$wind[1]-1,
+               xmax = pred$pred$Date[1]+pred$wind[2]-1, alpha = 0.1, fill = "orange")} +
     geom_point(size = 3) +
     labs(x = "Dátum", y = paste0("Napi ", if(what=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]")) +
     {if(logy) scale_y_log10()} + {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +
     {if(funfit&ci) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = col), alpha = 0.2, show.legend = FALSE)} +
-    {if(loessfit) geom_smooth(formula = y ~ x, method = "loess", col = "blue", se = ci,
-                              fill = "blue", alpha = 0.2, level = conf/100, size = 0.5)} +
+    {if(loessfit) geom_smooth(formula = y ~ splines::ns(x, 3), method = MASS::glm.nb,
+                              col = "blue", se = ci, fill = "blue", alpha = 0.2, level = conf/100, size = 0.5)} +
     {if(delta) geom_vline(xintercept = deltadate)} +
-    coord_cartesian(ylim = c(NA, max(c(pred[[what]][!is.na(pred[[what]])], pred$upr[is.na(pred[[what]])]))))
+    coord_cartesian(ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
+                                       pred$upr[is.na(pred$pred[[what]])]))))
 }
 
 grText <- function(m, fun, deltar = 0, future = FALSE, deltarDate = NA, startDate = NA) {
@@ -137,8 +139,8 @@ reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
                                   wind[2]-max(c(3, wind[1]))+1), c(R, unlist(conf.int))))
   res <- data.table(res)
   colnames(res) <- c("R", "lwr", "upr")
-  res$`Módszer` <- c("White", "Wallinga-Lipitsch (diszkretizált)", "Wallinga-Lipitsch (egzakt)", "Cori", "Wallinga-Teunis",
-                  "Bettencourt-Ribeiro")
+  res$`Módszer` <- c("White", "Wallinga-Lipsitch (diszkretizált)", "Wallinga-Lipsitch (egzakt)", "Cori", "Wallinga-Teunis",
+                     "Bettencourt-Ribeiro")
   res
 }
 
@@ -156,7 +158,7 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
                                    function(beg) with(R0::est.R0.EG(CaseNumber, discrGT, begin = beg,
                                                                     end = as.integer(beg+windowlen-1L)),
                                                       c(R, conf.int)))), NumDate = (windowlen):(length(CaseNumber)),
-                          `Módszer` = "Wallinga-Lipitsch Exp/Poi"),
+                          `Módszer` = "Wallinga-Lipsitch Exp/Poi"),
                with(R0::est.R0.TD(CaseNumber, discrGT, begin = 1L, end = length(CaseNumber)-1L),
                     cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Wallinga-Teunis")),
                with(R0::est.R0.SB(CaseNumber, discrGT, begin = 3L, end = length(CaseNumber)),

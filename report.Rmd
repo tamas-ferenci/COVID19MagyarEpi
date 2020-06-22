@@ -16,114 +16,54 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, dev = "cairo_pdf")
 options(digits = 3, knitr.kable.NA = "")
 RawData <- readRDS("RawData.dat")
 source("EpiHelpers.R", encoding = "UTF-8")
-resGr <- grData(predData(RawData, "Exponenciális", "Poisson", 95)$m, params$reportSImu, params$reportSIsd)
-resGrSw <- grSwData(RawData, lapply( 1:(nrow(RawData)-7+1), function(i) predData(RawData[i:(i+7-1)], "Exponenciális",
-                                                                                 "Poisson", 95)$m ),
-                    params$reportSImu, params$reportSIsd, 7)
-resBranch <- branchData(RawData, params$reportSImu, params$reportSIsd)
-resBranchSw <- branchSwData(RawData, params$reportSImu, params$reportSIsd, 7)
+options(scipen=999)
 ```
 
 # Járványgörbe
 
-A járvány jelenlegi görbéje a rá illesztett simítógörbével, logaritmikus függőleges tengellyel:
+A járvány jelenlegi görbéje a rá illesztett simítógörbével:
 
 ```{r}
-epicurvePlot(predData(RawData, "Exponenciális", "Poisson", params$reportConf)$pred, TRUE, FALSE, TRUE, TRUE, params$reportConf)
+epicurvePlot(predData(RawData))
 ```
-
-`r grText(predData(RawData, "Exponenciális", "Poisson", params$reportConf)$m, "Exponenciális")`
 
 # Előrejelzések
 
 ## Empirikus (rövid távú)
 
-Grafikus előrejelzés a következő hétre:
+Grafikus előrejelzés a következő hétre a megelőző két hét adataira illesztett exponenciális görbe alapján:
 
 ```{r}
-epicurvePlot(predData(RawData, "Exponenciális", "Poisson", params$reportConf, NA, 7)$pred, TRUE, TRUE, FALSE, TRUE, NA)
+epicurvePlot(predData(RawData, wind = c(RawData$NumDate[nrow(RawData)-14], tail(RawData$NumDate,1)), projper = 7,
+                      level = params$reportConf), funfit = TRUE, conf = params$reportConf)
 ```
 
-Számszerű előrejelzések a következő hétre:
+Az utolsó hét adatai és számszerű előrejelzések:
 
 ```{r}
-res <- round_dt(predData(RawData, "Exponenciális", "Poisson", params$reportConf, NA, 7)$pred)
+res <- round_dt(predData(RawData, wind = c(RawData$NumDate[nrow(RawData)-14], tail(RawData$NumDate,1)), projper = 7,
+                         level = params$reportConf)$pred)
 res$Pred <-  paste0(res$fit, " (", res$lwr, "-", res$upr, ")")
-res <- res[!duplicated(Date)]
+res <- res[!duplicated(Date)][Date>=RawData$Date[nrow(RawData)-7]]
 knitr::kable(res[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
                      `Becsült napi esetszám (95%-os CI) [fő/nap]` = Pred)])
 ```
 
 # Számításhoz használt feltevések
 
-A következő számításokhoz a modell feltételezi, hogy a serial interval (tehát az egy beteg tüneteinek jelentkezésétől az általa megbetegített emberek -- másodlagos fertőzések -- tüneteinek jelentkezéséig eltelő idő) gamma eloszlású `r params$SImuReport` várható értékkel és `r params$SIsdReport` szórással.
+A következő számításokhoz a modell feltételezi, hogy a serial interval (tehát az egy beteg tüneteinek jelentkezésétől az általa megbetegített emberek -- másodlagos fertőzések -- tüneteinek jelentkezéséig eltelő idő) gamma eloszlású `r params$reportSImu` várható értékkel és `r params$reportSIsd` szórással.
 
-# Reprodukciós szám becslései
+# Reprodukciós szám valós idejű becslései
 
-## Növekedési ráta alapján
-
-### Összes adat alapján
-
-Eloszlás:
-
-```{r}
-ggplot(resGr, aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) + expand_limits(x = 1)
-```
-
-Számszerű adatok:
-
-```{r}
-knitr::kable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum"),
-                        `Érték` = as.numeric(summary(resGr$R))))
-```
-
-### 7 napos csúszóablak
-
-Grafikus ábra:
-
-```{r}
-ggplot(resGrSw, aes(x = Date)) + geom_line(aes(y = V1), col = "blue") +
-  geom_ribbon(aes(ymin = X2.5., ymax = X97.5.), fill = "blue", alpha = 0.2) +  geom_hline(yintercept = 1, color = "red") +
-  labs(x = "Dátum", y = "R") + expand_limits(y = 1)
-```
-
-Számszerűen:
-
-```{r}
-knitr::kable(round_dt(resGrSw)[, .(`Dátum` = Date, `R (95%-os CI)` = paste0(V1, " (", X2.5., "-", X97.5., ")"))])
-```
-
-## Elágozó folyamat-elven
-
-### Összes adat alapján
-
-Eloszlás:
-
-```{r}
-ggplot(resBranch, aes(R)) + geom_density() + labs(y = "") + geom_vline(xintercept = 1, col = "red", size = 2) +
-  expand_limits(x = 1)
-```
-
-Számszerűen:
-
-```{r}
-knitr::kable(data.table(`Változó` = c("Minimum", "Alsó kvartilis", "Medián", "Átlag", "Felső kvartilis", "Maximum" ),
-                        `Érték` = as.numeric(summary(resBranch$R))))
-```
-
-### 7 napos csúszóablak
-
-Grafikus ábra:
-
-```{r}
-ggplot(resBranchSw, aes(x = Date)) + geom_line(aes(y = `Mean(R)`), col = "blue") +
-  geom_ribbon(aes(ymin = `Quantile.0.025(R)`, ymax = `Quantile.0.975(R)`), fill = "blue", alpha = 0.2) +
-  geom_hline(yintercept = 1, color = "red") + labs(x = "Dátum", y = "R") + expand_limits(y = 1)
-```
-
-Számszerűen:
-
-```{r}
-knitr::kable(round_dt(resBranchSw)[, .(`Dátum` = Date, `R (95%-os CrI)` = paste0(`Mean(R)`, " (", `Quantile.0.025(R)`,
-                                                                                 "-", `Quantile.0.975(R)`, ")"))])
+```{r, message = FALSE}
+pal <- scales::hue_pal()(4)
+scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3],
+             "Bettencourt-Ribeiro" = pal[4])
+res <- merge(reprRtData(RawData$CaseNumber, params$reportSImu, params$reportSIsd),
+             RawData)[`Módszer`%in%c("Cori", "Wallinga-Teunis")]
+ggplot(res, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer`, fill = `Módszer`)) + geom_line() +
+  geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +
+  labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
+  scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) + geom_ribbon(alpha = 0.2) +
+  coord_cartesian(ylim = c(NA, max(res$R)))
 ```
