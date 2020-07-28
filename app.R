@@ -84,7 +84,8 @@ ui <- fluidPage(
                                                     checkboxInput("epicurveFunfit", "Függvény illesztése"),
                                                     conditionalPanel("input.epicurveFunfit==1|input.epicurveLoessfit==1",
                                                                      checkboxInput("epicurveCi",
-                                                                                   "Konfidenciaintervallum megjelenítése")),
+                                                                                   "Konfidenciaintervallum megjelenítése",
+                                                                                   TRUE)),
                                                     conditionalPanel(
                                                       "(input.epicurveFunfit==1|input.epicurveLoessfit==1)&input.epicurveCi==1",
                                                       numericInput("epicurveConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
@@ -124,7 +125,7 @@ ui <- fluidPage(
                                    numericInput("projempPeriods", "Előrejelzett napok száma", 3, 1, 14, 1),
                                    conditionalPanel("input.projempType=='Grafikon'",
                                                     checkboxInput("projempLogy", "Függőleges tengely logaritmikus")),
-                                   checkboxInput("projempCi", "Konfidenciaintervallum megjelenítése"),
+                                   checkboxInput("projempCi", "Konfidenciaintervallum megjelenítése", TRUE),
                                    conditionalPanel("input.projempCi==1",
                                                     numericInput("projempConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
                             ),
@@ -141,8 +142,9 @@ ui <- fluidPage(
                                                                                           "Szcenárióelemzés")),
                                    conditionalPanel("input.projempFuture=='Szcenárióelemzés'",
                                                     numericInput("projempDeltar", "Eltérítés", 0, -2, 2, 0.01),
-                                                    dateInput("projempDeltarDate", "Időpontja", max(RawData$Date),
-                                                              max(RawData$Date), Sys.Date()+14))
+                                                     dateInput("projempDeltarDate", "Időpontja", max(RawData$Date),
+                                                               max(RawData$Date), max(RawData$Date)+14)
+                                                    )
                             )
                           )
                  ),
@@ -163,8 +165,8 @@ ui <- fluidPage(
                           fluidRow(
                             column(3,
                                    radioButtons("projcompType", "Megjelenítés", c("Grafikon", "Táblázat")),
-                                   dateInput("projcompEnd", "Előrevetítés vége", "2020-07-01", max(RawData$Date)+1,
-                                             min(RawData$Date)+200),
+                                   dateInput("projcompEnd", "Előrevetítés vége", max(RawData$Date)+100, max(RawData$Date)+1,
+                                             max(RawData$Date)+200),
                                    conditionalPanel("input.projcompType=='Grafikon'",
                                                     checkboxInput("projcompLogy", "Függőleges tengely logaritmikus"))
                             ),
@@ -277,7 +279,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ),  widths = c(2, 8)
   ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.25"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.26"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 

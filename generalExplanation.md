@@ -22,6 +22,16 @@ E módszerek kapcsán egyre fontosabb kérdést jelent a számítási háttér i
 
 Bár a konkrét cél a koronavírus-járványra adott válasz támogatása, valójában a kifejlesztett kódom bármilyen más járványnál is felhasználható, csak az esetszámokat kell kicserélni. Éppen ezért azt remélem, hogy az itt leírt ismeretek, illetve ez keretrendszer később is fogja tudni támogatni a magyar járványügyiseket.
 
+## Cikkeim, interjúim a témában
+
+- Ferenci Tamás. Harcban a koronavírus-járvánnyal: 1. rész: A taktika. INTERPRESS MAGAZIN 40:6 pp. 30-38. , 9 p. (2020). [Link](https://interpressmagazin.hu/cikkek/harcban-a-koronavirus-jarvannyal-1-resz-a-taktika/).
+- Ferenci Tamás. Harcban a koronavírus-járvánnyal: 2. rész: A stratégia. INTERPRESS MAGAZIN 40:7 pp. 36-45., 10 p. (2020).
+- Ferenci Tamás. Járványok: kitörés, terjedés, elfojtás. GYÓGYSZERÉSZET 64:6 pp. 324-333., 10 p. (2020). [Link](https://mgyt.hu/wp-content/uploads/2020/06/Gyogyszereszet-2006-ELOZETES.pdf).
+-  Ferenci Tamás. Az első hullám tapasztalatai (2020). Online cikk. [Link](https://index.hu/velemeny/olvir/2020/05/18/koronavirus_jarvany_magyarorszag_elso_hullam_tapasztalatok_sikeres_intezkedesek_hibak_ferenci_tamas/).
+- Ott a végünk, ha nem beszéljük meg nyíltan, mi jó, és mi nem a járvány kezelésében. Interjú Ferenci Tamással (2020). [Link](https://24.hu/belfold/2020/04/07/koronavirus-biostatisztikus-ferenci-tamas-halalozas-prognozis-interju/).
+-  Röst Gergely; Bartha Ferenc A.; Bogya Norbert; Boldog Péter; Dénes Attila; Ferenci Tamás; Horváth Krisztina J.; Juhász Attila; Nagy Csilla; Tekeli Tamás; Vizi Zsolt; Oroszi Beatrix. Early Phase of the COVID-19 Outbreak in Hungary and Post-Lockdown Scenarios. VIRUSES 12:7 p. 708 (2020). [Link](https://www.mdpi.com/1999-4915/12/7/708/htm).
+- Ferenci Tamás. Versenyfutás a koronavírus-vakcináért (2020). Online cikk. [Link](https://mta.hu/tudomany_hirei/versenyfutas-a-vakcinaert-110691).
+
 ## Adatok forrása
 
 Az adatokat egyelőre kézzel gépelem be az NNK adatközlései alapján, naponta.
