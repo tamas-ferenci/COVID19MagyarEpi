@@ -14,7 +14,7 @@ library(data.table)
 library(ggplot2)
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, dev = "cairo_pdf")
 options(digits = 3, knitr.kable.NA = "")
-RawData <- readRDS("RawData.dat")
+RawData <- readRDS("RawData.rds")
 source("EpiHelpers.R", encoding = "UTF-8")
 options(scipen=999)
 ```
