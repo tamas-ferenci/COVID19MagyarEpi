@@ -325,7 +325,7 @@ server <- function(input, output, session) {
   
   output$projempGraph <- renderPlot({
     epicurvePlot(dataInputProjemp(), input$projempOutcome, input$projempLogy, TRUE, FALSE, input$projempCi, NA,
-                 input$projempFuture!="Tényadat", input$projempDeltarDate)
+                 input$projempFuture!="Tényadat", input$projempDeltarDate, TRUE)
   })
   
   output$projempGraphText <- renderText({
