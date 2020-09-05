@@ -256,7 +256,7 @@ ui <- fluidPage(
                           rhandsontable::rHandsontableOutput("cfrUnderdetTab"),
                           hr(),
                           column(3,
-                                 numericInput("cfrUnderdetBench", "Benchmark halálozási arány", 1.38, 0, 100, 0.01)
+                                 numericInput("cfrUnderdetBench", "Benchmark halálozási arány", 0.8, 0, 100, 0.01)
                           ),
                           column(5,
                                  numericInput("cfrUnderdetDDTmu", "A diagnózis-halál idő várható értéke:", 13, 0.1, 20, 0.1),
@@ -267,7 +267,7 @@ ui <- fluidPage(
                           plotOutput("cfrSensGraph"),
                           hr(),
                           column(3,
-                                 numericInput("cfrSensBench", "Benchmark halálozási arány", 1.38, 0, 100, 0.01)
+                                 numericInput("cfrSensBench", "Benchmark halálozási arány", 0.8, 0, 100, 0.01)
                           )
                  ),
                  tabPanel("Magyarázat", withMathJax(includeMarkdown("cfrExplanation.md")))
