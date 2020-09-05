@@ -2,7 +2,7 @@ library(shiny)
 library(ggplot2)
 library(data.table)
 
-RawData <- readRDS("RawData.dat")
+RawData <- readRDS("RawData.rds")
 
 SImuDefault <- 4.7
 SIsdDefault <- 2.9
@@ -13,7 +13,7 @@ Sys.setlocale(locale = "hu_HU.utf8")
 options(mc.cores = parallel::detectCores())
 modCorrected <- readRDS("CFR_corrected_stan.rds")
 modRealtime <- readRDS("CFR_realtime_stan.rds")
-cfrsensgrid <- readRDS("cfrsensgrid.dat")
+cfrsensgrid <- readRDS("cfrsensgrid.rds")
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -59,9 +59,10 @@ ui <- fluidPage(
   
   p("A weboldal és az elemzések teljes forráskódja ",
     a("itt", href = "https://github.com/tamas-ferenci/COVID19MagyarEpi", target = "_blank"),
-    " érhető el. Írta: Ferenci Tamás."),
+    "érhető el. Írta: Ferenci Tamás. Az adatok utolsó frissítésének időpontja:", paste0(format(max(RawData$Date),
+                                                                                               "%Y. %m. %d"), ".")),
   div(class="fb-like", "data-href"="https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/",
-      "data-width" = "550", "data-layout"="standard", "data-action"="like", "data-size"="small", "data-share"="true"), p(),
+      "data-width" = "600", "data-layout"="standard", "data-action"="like", "data-size"="small", "data-share"="true"), p(),
   
   navlistPanel(
     tabPanel("Magyarázat", withMathJax(includeMarkdown("generalExplanation.md"))),
@@ -135,7 +136,8 @@ ui <- fluidPage(
                                                 c("Exponenciális", "Hatvány", "Logisztikus")),
                                    radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális"),
                                                 selected = "Poisson"),
-                                   sliderInput("projempWindow", "Ablakozás", 1, nrow(RawData), c(1, nrow(RawData)), 1)
+                                   sliderInput("projempWindow", "Ablakozás", 1, nrow(RawData),
+                                               c(nrow(RawData)-14, nrow(RawData)), 1)
                             ),
                             column(3,
                                    radioButtons("projempFuture", "Jövőbeli növekedés:", c("Tényadat",
@@ -277,9 +279,9 @@ ui <- fluidPage(
              numericInput("reportSImu", "A serial interval várható értéke:", SImuDefault, 0.01, 20, 0.01),
              numericInput("reportSIsd", "A serial interval szórása:", SIsdDefault, 0.01, 20, 0.01),
              downloadButton("report", "Jelentés letöltése (PDF)")
-    ),  widths = c(2, 8)
-  ),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.26"),
+    ), widths = c(2, 8)
+  ), hr(),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.27"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -549,10 +551,10 @@ server <- function(input, output, session) {
     content = function(file) {
       td <- tempdir()
       tempReport <- file.path(td, "report.Rmd")
-      tempRawData <- file.path(td, "RawData.dat")
+      tempRawData <- file.path(td, "RawData.rds")
       tempEpiHelpers <- file.path(td, "EpiHelpers.R")
       file.copy("report.Rmd", tempReport, overwrite = TRUE)
-      file.copy("RawData.dat", tempRawData, overwrite = TRUE)
+      file.copy("RawData.rds", tempRawData, overwrite = TRUE)
       file.copy("EpiHelpers.R", tempEpiHelpers, overwrite = TRUE)
       params <- list(reportConf = input$reportConf, reportSImu = input$reportSImu, reportSIsd = input$reportSIsd)
       rmarkdown::render(tempReport, output_file = file, params = params, envir = new.env(parent = globalenv()))

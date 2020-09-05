@@ -24,19 +24,21 @@ Bár a konkrét cél a koronavírus-járványra adott válasz támogatása, val�
 
 ## Cikkeim, interjúim a témában
 
-- Ferenci Tamás. Harcban a koronavírus-járvánnyal: 1. rész: A taktika. INTERPRESS MAGAZIN 40:6 pp. 30-38. , 9 p. (2020). [Link](https://interpressmagazin.hu/cikkek/harcban-a-koronavirus-jarvannyal-1-resz-a-taktika/).
-- Ferenci Tamás. Harcban a koronavírus-járvánnyal: 2. rész: A stratégia. INTERPRESS MAGAZIN 40:7 pp. 36-45., 10 p. (2020).
-- Ferenci Tamás. Járványok: kitörés, terjedés, elfojtás. GYÓGYSZERÉSZET 64:6 pp. 324-333., 10 p. (2020). [Link](https://mgyt.hu/wp-content/uploads/2020/06/Gyogyszereszet-2006-ELOZETES.pdf).
--  Ferenci Tamás. Az első hullám tapasztalatai (2020). Online cikk. [Link](https://index.hu/velemeny/olvir/2020/05/18/koronavirus_jarvany_magyarorszag_elso_hullam_tapasztalatok_sikeres_intezkedesek_hibak_ferenci_tamas/).
-- Ott a végünk, ha nem beszéljük meg nyíltan, mi jó, és mi nem a járvány kezelésében. Interjú Ferenci Tamással (2020). [Link](https://24.hu/belfold/2020/04/07/koronavirus-biostatisztikus-ferenci-tamas-halalozas-prognozis-interju/).
--  Röst Gergely; Bartha Ferenc A.; Bogya Norbert; Boldog Péter; Dénes Attila; Ferenci Tamás; Horváth Krisztina J.; Juhász Attila; Nagy Csilla; Tekeli Tamás; Vizi Zsolt; Oroszi Beatrix. Early Phase of the COVID-19 Outbreak in Hungary and Post-Lockdown Scenarios. VIRUSES 12:7 p. 708 (2020). [Link](https://www.mdpi.com/1999-4915/12/7/708/htm).
-- Ferenci Tamás. Versenyfutás a koronavírus-vakcináért (2020). Online cikk. [Link](https://mta.hu/tudomany_hirei/versenyfutas-a-vakcinaert-110691).
+- Ferenci Tamás. [Harcban a koronavírus-járvánnyal: 1. rész: A taktika](https://interpressmagazin.hu/cikkek/harcban-a-koronavirus-jarvannyal-1-resz-a-taktika/). INTERPRESS MAGAZIN 40:6 pp. 30-38. , 9 p. (2020).
+- Ferenci Tamás. [Harcban a koronavírus-járvánnyal: 2. rész: A stratégia](https://interpressmagazin.hu/cikkek/harcban-a-koronavirus-jarvannyal-2-resz-a-strategia/). INTERPRESS MAGAZIN 40:7 pp. 36-45., 10 p. (2020).
+- Ferenci Tamás. [Járványok: kitörés, terjedés, elfojtás](https://mgyt.hu/wp-content/uploads/2020/06/Gyogyszereszet-2006-ELOZETES.pdf). GYÓGYSZERÉSZET 64:6 pp. 324-333., 10 p. (2020).
+-  Ferenci Tamás. [Az első hullám tapasztalatai](https://index.hu/velemeny/olvir/2020/05/18/koronavirus_jarvany_magyarorszag_elso_hullam_tapasztalatok_sikeres_intezkedesek_hibak_ferenci_tamas/). (2020). Online cikk.
+- [Ott a végünk, ha nem beszéljük meg nyíltan, mi jó, és mi nem a járvány kezelésében](https://24.hu/belfold/2020/04/07/koronavirus-biostatisztikus-ferenci-tamas-halalozas-prognozis-interju/). Interjú Ferenci Tamással (2020).
+-  Röst Gergely; Bartha Ferenc A.; Bogya Norbert; Boldog Péter; Dénes Attila; Ferenci Tamás; Horváth Krisztina J.; Juhász Attila; Nagy Csilla; Tekeli Tamás; Vizi Zsolt; Oroszi Beatrix. [Early Phase of the COVID-19 Outbreak in Hungary and Post-Lockdown Scenarios](https://www.mdpi.com/1999-4915/12/7/708/htm). VIRUSES 12:7 p. 708 (2020).
+- Ferenci Tamás. [Versenyfutás a koronavírus-vakcináért](https://mta.hu/tudomany_hirei/versenyfutas-a-vakcinaert-110691). (2020). Online cikk.
 
 ## Adatok forrása
 
 Az adatokat egyelőre kézzel gépelem be az NNK adatközlései alapján, naponta.
 
 (Személyes megjegyzés zárójelben: egy szégyen az országnak, hogy miközben a macedón (macedón!) közegészségügy [ilyet](https://gdi-sk.maps.arcgis.com/apps/opsdashboard/index.html#/2096bd4b051b42948ac3f5747e80c3a5) működtet (most a sportszerűség kedvéért a nyugati példákat nem is idézem...), addig Magyarországon oda nem sikerült eljutni, így a járvány harmadik hetére, hogy egy életkori, vagy nemi bontás nyilvánosan elérhető legyen. De még a napi esetszámot is kézzel kell kivonni az egyedül közölt kumulált számból, és átpötyögni egy táblázatba. Mindezt 2020-ban. Szerintem ez így szegénységi bizonyítvány az egész magyar népegészségügyre nézve. Mert ez tényleg szándék kérdése, ne mondja nekem senki, hogy akkora erőforrásigénye lenne kirakni egy Excel-táblát napi esetszámmal és életkori/nemi bontással.)
+
+Frissítés (2020. július 29.): Hosszas gondolkodás után végülis átállítottam az oldal adatforrását a Johns Hopkins adatbázisra, így az oldal innentől teljesen automatikusan és naponta frissül. Jobban örültem volna az ECDC vagy WHO használatának (egy fokkal mégis csak "hivatalosabbak"), de mindkettőben vannak hibák - ami amúgy szintén megérne egy misét... - míg a Johns Hopkins hónapokra visszamenően helyes számokat tartalmaz.
 
 ## Mik a fontos eredmények?
 

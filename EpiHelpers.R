@@ -174,8 +174,10 @@ cfrMCMC <- function(rd, modCorrected, modRealtime, DDTmu, DDTsd) {
   u <- round(sapply(1:nrow(rd), function(t) sum(sapply(1:t, function(i)
     sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*discrdist$d(j)))))))
   u2 <- round(sapply(1:nrow(rd), function(t) sum(sapply(0:(t-1), function(j) rd$CaseNumber[t-j]*discrdist$d(j)))))
-  fitCorrected <- rstan::sampling(modCorrected, data = list(N = nrow(rd), CumDeathNumber = rd$CumDeathNumber, u = u))
-  fitRealtime <- rstan::sampling(modRealtime, data = list(N = nrow(rd), DeathNumber = rd$DeathNumber, u2 = u2))
+  fitCorrected <- rstan::sampling(modCorrected, data = list(N = nrow(rd), CumDeathNumber = rd$CumDeathNumber, u = u),
+                                  control = list(max_treedepth = 14))
+  fitRealtime <- rstan::sampling(modRealtime, data = list(N = nrow(rd), DeathNumber = rd$DeathNumber, u2 = u2),
+                                 control = list(max_treedepth = 14))
   list(fitCorrected = fitCorrected, fitRealtime = fitRealtime)
 }
 
