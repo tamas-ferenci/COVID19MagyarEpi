@@ -90,7 +90,8 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
                               col = "blue", se = ci, fill = "blue", alpha = 0.2, level = conf/100, size = 0.5)} +
     {if(delta) geom_vline(xintercept = deltadate)} +
     coord_cartesian(ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
-                                       pred$pred$upr[is.na(pred$pred[[what]])]))))
+                                       pred$pred$upr[is.na(pred$pred[[what]])])))) +
+    scale_x_date(date_breaks = "month", date_labels = "%b")
 }
 
 grText <- function(m, fun, deltar = 0, future = FALSE, deltarDate = NA, startDate = NA) {

@@ -197,7 +197,7 @@ ui <- fluidPage(
                                    checkboxGroupInput("reprRtMethods", "Módszerek",
                                                       c("Cori", "Wallinga-Lipsitch Exp/Poi", "Wallinga-Teunis",
                                                         "Bettencourt-Ribeiro"),
-                                                      c("Cori", "Wallinga-Teunis", "Bettencourt-Ribeiro"))),
+                                                      c("Cori", "Wallinga-Teunis"))),
                             column(3,
                                    sliderInput("reprRtWindowlen", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1),
                                    numericInput("reprRtSImu", "A serial interval várható értéke:", SImuDefault, 0.01, 20, 0.01),
@@ -281,7 +281,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.27"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.28"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -375,7 +375,8 @@ server <- function(input, output, session) {
       labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
       {if(input$reprRtCi) geom_ribbon(alpha = 0.2)} +
-      {if(!input$reprRtCi) coord_cartesian(ylim = c(NA, max(res$R)))}
+      {if(!input$reprRtCi) coord_cartesian(ylim = c(NA, max(res$R)))} +
+      scale_x_date(date_breaks = "month", date_labels = "%b")
   })
   
   output$reprRtTab <- rhandsontable::renderRHandsontable({

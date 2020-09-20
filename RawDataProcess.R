@@ -46,7 +46,7 @@ RawData$CumDeathNumber <- cumsum(RawData$DeathNumber)
 RawData$NumDate <- as.numeric(RawData$Date)-min(as.numeric(RawData$Date))+1
 # RawData$Population <- 9772756 # http://www.ksh.hu/docs/hun/xstadat/xstadat_eves/i_wnt001b.html
 # RawData$Inc <- RawData$CaseNumber/Population*1e6
-saveRDS(RawData, file = "RawData.rds")
+saveRDS(RawData, file = "/srv/shiny-server/COVID19MagyarEpi/RawData.rds")
 
 cfrsensgrid <- expand.grid(DDTmu = seq(7, 21, 0.1), DDTsd = seq(9, 15, 0.1))
 cfrsensgrid$meanlog <- log(cfrsensgrid$DDTmu)-log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1)/2
@@ -57,4 +57,4 @@ cfrsensgrid$`Korrigált halálozási arány [%]` <- apply(cfrsensgrid, 1, functi
   LastCumDeathNumber/sum(sapply(1:nrow(RawData),
                                 function(i) sum(sapply(0:(i-1), function(j) RawData$CaseNumber[i-j]*discrdist$d(j)))))*100
 })
-saveRDS(cfrsensgrid, "cfrsensgrid.rds")
+saveRDS(cfrsensgrid, "/srv/shiny-server/COVID19MagyarEpi/cfrsensgrid.rds")
