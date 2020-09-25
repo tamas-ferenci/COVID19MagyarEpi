@@ -110,6 +110,32 @@ ui <- fluidPage(
                )
              )
     ),
+    tabPanel("Tesztpozitivitás",
+             fluidPage(
+               tabsetPanel(
+                 tabPanel("Tesztpozitivitás",
+                          conditionalPanel("input.testpositivityType=='Grafikon'", plotOutput("testpositivityGraph")),
+                          conditionalPanel("input.testpositivityType=='Táblázat'", rhandsontable::rHandsontableOutput("testpositivityTab")),
+                          hr(),
+                          fluidRow(
+                            column(3,
+                                   radioButtons("testpositivityType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   conditionalPanel("input.testpositivityType=='Grafikon'",
+                                                    checkboxInput("testpositivitySmoothfit", "Simítógörbe illesztése", TRUE),
+                                                    conditionalPanel("input.testpositivitySmoothfit==1",
+                                                                     checkboxInput("testpositivityCi",
+                                                                                   "Konfidenciaintervallum megjelenítése",
+                                                                                   TRUE)),
+                                                    conditionalPanel(
+                                                      "input.testpositivitySmoothfit==1&input.testpositivityCi==1",
+                                                      numericInput("testpositivityConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
+                            )
+                          )
+                 ),
+                 tabPanel("Magyarázat", withMathJax(includeMarkdown("testpositivityExplanation.md")))
+               )
+             )
+    ),
     tabPanel("Előrejelzések",
              fluidPage(
                tabsetPanel(
@@ -144,9 +170,9 @@ ui <- fluidPage(
                                                                                           "Szcenárióelemzés")),
                                    conditionalPanel("input.projempFuture=='Szcenárióelemzés'",
                                                     numericInput("projempDeltar", "Eltérítés", 0, -2, 2, 0.01),
-                                                     dateInput("projempDeltarDate", "Időpontja", max(RawData$Date),
-                                                               max(RawData$Date), max(RawData$Date)+14)
-                                                    )
+                                                    dateInput("projempDeltarDate", "Időpontja", max(RawData$Date),
+                                                              max(RawData$Date), max(RawData$Date)+14)
+                                   )
                             )
                           )
                  ),
@@ -281,7 +307,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.28"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.29"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -316,6 +342,21 @@ server <- function(input, output, session) {
                                  colHeaders = c("Dátum",
                                                 paste0("Napi ", if(input$epicurveOutcome=="CaseNumber") "eset" else "halálozás-",
                                                        "szám [fő/nap]")), readOnly = TRUE, height = 500)
+  })
+  
+  output$testpositivityGraph <- renderPlot({
+    ggplot(RawData, aes(x = Date, y = fracpos, CaseNumber = CaseNumber, TestNumber = TestNumber)) + geom_point() +
+      {if(input$testpositivitySmoothfit) geom_smooth(method = "gam", formula = cbind(CaseNumber, TestNumber) ~ s(x),
+                  method.args = list(family = binomial(link = "logit")), se = input$testpositivityCi, level = input$testpositivityConf/100)} +
+      scale_x_date(date_breaks = "month", date_labels = "%b") +
+      scale_y_continuous(labels = function(x) x*100) + labs(x = "Dátum", y = "Tesztpozitivitási arány [%]") +
+      geom_hline(yintercept = 0.05, color = "red")
+  })
+  
+  output$testpositivityTab <- rhandsontable::renderRHandsontable({
+    rhandsontable::rhandsontable(RawData[,.(Date, CaseNumber, TestNumber, fracpos*100)],
+                                 colHeaders = c("Dátum", "Napi esetszám [fő/nap]", "Napi tesztszám [db/nap]",
+                                                "Tesztpozitivitás [%]"), readOnly = TRUE, height = 500)
   })
   
   dataInputProjemp <- reactive({
