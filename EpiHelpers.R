@@ -11,7 +11,8 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
                      projper = 0, deltar = NA, deltardate = NA) {
   if(any(is.na(wind))) wind <- c(rd$NumDate[1], tail(rd$NumDate,1))
   if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
-                                           CaseNumber = NA, DeathNumber = NA, CumCaseNumber = NA, CumDeathNumber = NA,
+                                           CaseNumber = NA, DeathNumber = NA, TestNumber = NA, fracpos = NA,
+                                           CumCaseNumber = NA, CumDeathNumber = NA, CumTestNumber = NA,
                                            NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
   rd$Deviated <- (rd$Date>=deltardate)&is.na(rd[[what]])
   crit.value <- qt(1-(1-level/100)/2, df = sum(!is.na(rd[[what]]))-2)
@@ -86,8 +87,8 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
     labs(x = "Dátum", y = paste0("Napi ", if(what=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]")) +
     {if(logy) scale_y_log10()} + {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +
     {if(ci&(funfit|forecast)) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = col), alpha = 0.2, show.legend = FALSE)} +
-    {if(loessfit) geom_smooth(formula = y ~ splines::ns(x, 3), method = MASS::glm.nb,
-                              col = "blue", se = ci, fill = "blue", alpha = 0.2, level = conf/100, size = 0.5)} +
+    {if(loessfit) geom_smooth(method = "gam", formula = y ~ s(x), method.args = list(family = mgcv::nb()),
+                              se = ci, level = conf/100)} +
     {if(delta) geom_vline(xintercept = deltadate)} +
     coord_cartesian(ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
                                        pred$pred$upr[is.na(pred$pred[[what]])])))) +

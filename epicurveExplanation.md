@@ -82,10 +82,10 @@ Az illesztés hagyományos legkisebbek négyzetek (OLS) elven történik, a loga
 
 A GLM modellek maximum likelihood (ML) elven becsülhetőek, tipikusan iteratívan újrasúlyozott legkisebb négyzetek (IWLS, IRLS) módszerével. Negatív binomiális eloszlás esetén a plusz paraméter becslése miatt kicsit bonyolultabb a helyzet, de lényegében ott is ML becslés történik.
 
-### LOESS nemparaméteres simítás
+### Simítás
 
-E módszer lényege, hogy nem tételezünk fel semmilyen függvényformát, hanem "követjük az adatokat" (nem-paraméteres regresszió). A LOESS ezt a következőképp oldja meg. Egy adott pontra úgy kapja meg a simítógörbe ottani értékét, hogy veszi a pont lokális környezetét: egyfelől sorbarakja a megfigyeléseseket a kérdéses ponttól vett távolság szerint és a legtávolabbi 25%-ot eldobja, majd a meghagyott megfigyeléseket is súlyozza a kérdéses ponttól vett távolság szerint (egész pontosan az $\left[1-\left(d/M\right)^3\right]^3$ függvény szerint, ahol $d$ a távolság, $M$ pedig a távolságok maximuma a meghagyott megfigyelések között). Az így kapott, szűkített és súlyozott ponthalmazra ezután másodfokú polinomot illeszt (legkisebb négyzetes elven), és az e szerint predikált érték a kérdéses pontban lesz a simítógörbe értéke az adott ponton.
+E módszer lényege, hogy nem tételezünk fel semmilyen függvényformát, hanem "követjük az adatokat" (nem-paraméteres regresszió). A simítás spline-regresszióval történik, thin plate spline-t használva, negatív binomiális eredményváltozót feltételezve.
 
 ## Számítástechnikai részletek
 
-Az ábrázoláshoz a `ggplot2` csomagot használtam. A lognormális modell becslése `lm`-mel, a Poisson-regresszió `glm`-mel, a negatív binomális modell becslése `MASS::glm.nb`-vel történik. A LOESS simítás a `loess` paranccsal történik (amit a `geom_smooth` hív meg).
+Az ábrázoláshoz a `ggplot2` csomagot használtam. A lognormális modell becslése `lm`-mel, a Poisson-regresszió `glm`-mel, a negatív binomális modell becslése `MASS::glm.nb`-vel történik. A simítás `mgcv::gam`-mal történt (amit a `geom_smooth` hív meg).

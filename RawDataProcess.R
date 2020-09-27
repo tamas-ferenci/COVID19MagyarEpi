@@ -30,7 +30,7 @@ RawData <- rbind(
 RawData2 <- fread("https://covid.ourworldindata.org/data/owid-covid-data.csv")
 RawData2 <- RawData2[location=="Hungary"&tests_units=="tests performed", .(Date = date-1, TestNumber = new_tests)]
 
-RawData <- merge(RawData, RawData2)
+RawData <- merge(RawData, RawData2, sort = FALSE)
 
 RawData$TestNumber[1:6] <- c(109, 109, 50, 43, 110, 110)
 
@@ -57,6 +57,13 @@ RawData$NumDate <- as.numeric(RawData$Date)-min(as.numeric(RawData$Date))+1
 # RawData$Population <- 9772756 # http://www.ksh.hu/docs/hun/xstadat/xstadat_eves/i_wnt001b.html
 # RawData$Inc <- RawData$CaseNumber/Population*1e6
 saveRDS(RawData, file = "/srv/shiny-server/COVID19MagyarEpi/RawData.rds")
+
+cfg <- covidestim::covidestim(ndays = nrow(RawData)) +
+  covidestim::input_cases(RawData[,.(date = Date, observation = CaseNumber)]) +
+  covidestim::input_deaths(RawData[,.(date = Date, observation = DeathNumber)]) +
+  covidestim::input_fracpos(RawData[,.(date = Date, observation = fracpos)])
+result <- covidestim::run(cfg)
+saveRDS(result, file = "/srv/shiny-server/COVID19MagyarEpi/CovidestimResult.rds")
 
 cfrsensgrid <- expand.grid(DDTmu = seq(7, 21, 0.1), DDTsd = seq(9, 15, 0.1))
 cfrsensgrid$meanlog <- log(cfrsensgrid$DDTmu)-log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1)/2
