@@ -27,10 +27,15 @@ RawData <- rbind(
              CaseNumber = diff(as.numeric(RawData[RawData$Country.Region=="Hungary", -(1:104)])),
              DeathNumber = diff(as.numeric(RawData2[RawData2$Country.Region=="Hungary", -(1:104)]))))
 
+# RawData <- rbind(RawData, data.table(Date = as.Date("2020-10-13"), CaseNumber = 920, DeathNumber = 11))
+
 RawData2 <- fread("https://covid.ourworldindata.org/data/owid-covid-data.csv")
 RawData2 <- RawData2[location=="Hungary"&tests_units=="tests performed", .(Date = date-1, TestNumber = new_tests)]
+# RawData2 <- rbind(RawData2, data.table(Date = as.IDate(c("2020-09-25", "2020-09-26", "2020-09-27")),
+#                                        TestNumber = c(11782, 10073, 7065)))
+# RawData2 <- rbind(RawData2, data.table(Date = as.IDate(c("2020-09-30")),TestNumber = c(11972)))
 
-RawData <- merge(RawData, RawData2, sort = FALSE)
+RawData <- merge(RawData, RawData2, sort = FALSE, all.x = TRUE)
 
 RawData$TestNumber[1:6] <- c(109, 109, 50, 43, 110, 110)
 
@@ -58,12 +63,41 @@ RawData$NumDate <- as.numeric(RawData$Date)-min(as.numeric(RawData$Date))+1
 # RawData$Inc <- RawData$CaseNumber/Population*1e6
 saveRDS(RawData, file = "/srv/shiny-server/COVID19MagyarEpi/RawData.rds")
 
-cfg <- covidestim::covidestim(ndays = nrow(RawData)) +
-  covidestim::input_cases(RawData[,.(date = Date, observation = CaseNumber)]) +
-  covidestim::input_deaths(RawData[,.(date = Date, observation = DeathNumber)]) +
-  covidestim::input_fracpos(RawData[,.(date = Date, observation = fracpos)])
-result <- covidestim::run(cfg)
-saveRDS(result, file = "/srv/shiny-server/COVID19MagyarEpi/CovidestimResult.rds")
+tf <- tempfile(fileext = ".xls")
+download.file("https://www.ksh.hu/docs/hun/xstadat/xstadat_evkozi/xls/1_2h.xls", tf, mode = "wb")
+RawData <- as.data.table(XLConnect::readWorksheetFromFile(tf, 1, startRow = 4,
+                                                          header = TRUE)[,c(3, 5:17, 19:31)])
+names(RawData) <- c("date", paste0("Male_", c(0, seq(35, 90, 5))),
+                    paste0("Female_", c(0, seq(35, 90, 5))))
+RawData$date <- as.Date(RawData$date, tz = "CET")
+for(i in 2:ncol(RawData)) {
+  RawData[[i]][RawData[[i]]=="–"] <- 0
+  RawData[[i]] <- as.numeric(RawData[[i]])
+}
+RawData <- melt(RawData, id.vars = "date", variable.factor = FALSE, value.name = "outcome")
+RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
+RawData$AGE <- as.numeric(sapply(strsplit(RawData$variable, "_"), `[`, 2))
+PopPyramid <- readRDS("PopPyramid2020.rds")
+PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION, unique(RawData$date)),
+                                list(date = x, population = y)), .(AGE, SEX)]
+RawData <- merge(RawData, PopPyramid)
+RawData$isoweek <- lubridate::isoweek(RawData$date)
+RawData$isoyear <- lubridate::isoyear(RawData$date)
+RawData$incidence <- RawData$outcome/RawData$population*1e5
+RawData$SEXf <- as.factor(RawData$SEX)
+RawData$isoyearf <- as.factor(RawData$isoyear)
+RawData$datenum <- (as.numeric(RawData$date)-min(as.numeric(RawData$date)))/365.24
+RawData$AGEcenter <- RawData$AGE+2.5
+RawData$AGEcenter[RawData$AGEcenter==2.5] <- 17.5
+RawData$SEX <- ifelse(RawData$SEX=="Male", "Férfi", "Nő")
+saveRDS(RawData, "/srv/shiny-server/COVID19MagyarEpi/ExcessMort.rds")
+
+# cfg <- covidestim::covidestim(ndays = nrow(RawData)) +
+#   covidestim::input_cases(RawData[,.(date = Date, observation = CaseNumber)]) +
+#   covidestim::input_deaths(RawData[,.(date = Date, observation = DeathNumber)]) +
+#   covidestim::input_fracpos(RawData[,.(date = Date, observation = fracpos)])
+# result <- covidestim::run(cfg)
+# saveRDS(result, file = "/srv/shiny-server/COVID19MagyarEpi/CovidestimResult.rds")
 
 cfrsensgrid <- expand.grid(DDTmu = seq(7, 21, 0.1), DDTsd = seq(9, 15, 0.1))
 cfrsensgrid$meanlog <- log(cfrsensgrid$DDTmu)-log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1)/2

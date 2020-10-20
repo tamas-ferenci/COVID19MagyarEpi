@@ -14,6 +14,8 @@ options(mc.cores = parallel::detectCores())
 modCorrected <- readRDS("CFR_corrected_stan.rds")
 modRealtime <- readRDS("CFR_realtime_stan.rds")
 cfrsensgrid <- readRDS("cfrsensgrid.rds")
+ExcessMort <- readRDS("ExcessMort.rds")
+exclude_dates <- seq(as.Date("2020-03-01"), max(ExcessMort$date), by = "day")
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -107,6 +109,33 @@ ui <- fluidPage(
                           )
                  ),
                  tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveExplanation.md")))
+               )
+             )
+    ),
+    tabPanel("Többlethalálozás",
+             fluidPage(
+               tabsetPanel(
+                 tabPanel("Mortalitás alakulása",
+                          plotOutput("excessmortGraph"),
+                          hr(),
+                          fluidRow(
+                            column(3,
+                                   selectInput("excessmortStratify",
+                                               "Rétegzés", c("Nincs", "Nem", "Életkor", "Nem és életkor"))
+                            )
+                          )
+                 ),
+                 tabPanel("Modellezett többlethalálozás",
+                          plotOutput("excessmortModelGraph"),
+                          hr(),
+                          fluidRow(
+                            column(3,
+                                   selectInput("excessmortModelStratify",
+                                               "Rétegzés", c("Nincs", "Nem", "Életkor", "Nem és életkor"))
+                            )
+                          )
+                 ),
+                 tabPanel("Magyarázat", withMathJax(includeMarkdown("excessmortExplanation.md")))
                )
              )
     ),
@@ -307,7 +336,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.30"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.31"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -344,10 +373,49 @@ server <- function(input, output, session) {
                                                        "szám [fő/nap]")), readOnly = TRUE, height = 500)
   })
   
+  output$excessmortGraph <- renderPlot({
+    stratlist <- c("date", switch(input$excessmortStratify,
+                                     "Nem" = "SEX", "Életkor" = "AGE",
+                                     "Nem és életkor" = c("AGE", "SEX")))
+    ggplot(ExcessMort[,.(outcome = sum(outcome), population = sum(population), isoyear = isoyear,
+                         isoweek = isoweek), stratlist],
+           aes(x = isoweek, y = outcome/population*1e5, group = isoyear,
+               color = isoyear==2020, alpha = isoyear==2020)) + geom_line() +
+      scale_alpha_manual(values = c(0.3, 1)) + guides(color = FALSE, alpha = FALSE) +
+      {if(input$excessmortStratify=="Nem") facet_wrap(vars(SEX))} +
+      {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
+      {if(input$excessmortStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")} +
+      labs(x = "ISO hét", y = "Mortalitás [/100 ezer fő/hét]")
+  })
+  
+  output$excessmortModelGraph <- renderPlot({
+    stratlist <- c("date", switch(input$excessmortModelStratify,
+                                  "Nem" = "SEX", "Életkor" = "AGE",
+                                  "Nem és életkor" = c("AGE", "SEX")))
+    
+    fitStrat <- ExcessMort[,.(outcome = sum(outcome), population = sum(population)), stratlist][
+      ,with(excessmort::excess_model(.SD, min(ExcessMort$date), max(ExcessMort$date),
+                                                       exclude = exclude_dates),
+                              list(date = date, y = 100 * (observed - expected)/expected,
+                                   increase = 100 * fitted, sd = 100 * sd, se = 100 * se)),
+      c(stratlist[-1])]
+    
+    z <- qnorm(1 - 0.05/2)
+    
+    ggplot(fitStrat, aes(x = date, y = y)) + geom_point(alpha = 0.5) + geom_line(aes(y = increase), col = "#3366FF") +
+      geom_ribbon(aes(ymin = increase - z * se, ymax = increase + z * se), alpha = 0.5) +
+      geom_hline(yintercept = 0) + 
+      labs(x = "Dátum", y = "Százalékos eltérés a várt értéktől") +
+      {if(input$excessmortModelStratify=="Nem") facet_wrap(vars(SEX))} +
+      {if(input$excessmortModelStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
+      {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")}
+  })
+  
   output$testpositivityGraph <- renderPlot({
     ggplot(RawData, aes(x = Date, y = fracpos, CaseNumber = CaseNumber, TestNumber = TestNumber)) + geom_point() +
       {if(input$testpositivitySmoothfit) geom_smooth(method = "gam", formula = cbind(CaseNumber, TestNumber) ~ s(x),
-                  method.args = list(family = binomial(link = "logit")), se = input$testpositivityCi, level = input$testpositivityConf/100)} +
+                                                     method.args = list(family = binomial(link = "logit")),
+                                                     se = input$testpositivityCi, level = input$testpositivityConf/100)} +
       scale_x_date(date_breaks = "month", date_labels = "%b") +
       scale_y_continuous(labels = function(x) x*100) + labs(x = "Dátum", y = "Tesztpozitivitási arány [%]") +
       geom_hline(yintercept = 0.05, color = "red")
@@ -476,14 +544,15 @@ server <- function(input, output, session) {
     sims <- dataInputProjcomp()
     if(!is.null(sims)) {
       ggplot(sims, aes(x = Date,y = CaseNumber, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
-        {if(input$projcompLogy) scale_y_log10(labels = sepform) else scale_y_continuous(labels = sepform)} +
+        scale_y_continuous(labels = sepform) +
         geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
         geom_ribbon(data = subset(sims, .id==0), aes(y = med, ymin = lwr, ymax = upr), alpha = 0.2) +
         geom_line(data = subset(sims, .id==0), aes(y = med), size = 1.5) +
         geom_point(data = subset(sims, is.na(.id)), size = 3, color = "black")  +
         labs(x = "Dátum", y = "Napi esetszám [fő/nap]") + guides(color = FALSE, fill = FALSE) +
-        coord_cartesian(xlim = c.Date(NA, input$projcompEnd),
-                        ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber, na.rm = TRUE))) +
+        coord_trans(y = if(logy) scales::pseudo_log_trans() else scales::identity_trans(),
+                    xlim = c.Date(NA, input$projcompEnd),
+                    ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber, na.rm = TRUE))) +
         geom_vline(xintercept = rhandsontable::hot_to_r(input$projcompInput)$Date)
     }
   })

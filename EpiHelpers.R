@@ -85,13 +85,14 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
                xmax = pred$pred$Date[1]+pred$wind[2]-1, alpha = 0.1, fill = "orange")} +
     geom_point(size = 3) +
     labs(x = "Dátum", y = paste0("Napi ", if(what=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]")) +
-    {if(logy) scale_y_log10()} + {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +
+    {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +
     {if(ci&(funfit|forecast)) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = col), alpha = 0.2, show.legend = FALSE)} +
     {if(loessfit) geom_smooth(method = "gam", formula = y ~ s(x), method.args = list(family = mgcv::nb()),
                               se = ci, level = conf/100)} +
     {if(delta) geom_vline(xintercept = deltadate)} +
-    coord_cartesian(ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
-                                       pred$pred$upr[is.na(pred$pred[[what]])])))) +
+    coord_trans(y = if(logy) scales::pseudo_log_trans() else scales::identity_trans(),
+                ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
+                                   pred$pred$upr[is.na(pred$pred[[what]])])))) +
     scale_x_date(date_breaks = "month", date_labels = "%b")
 }
 

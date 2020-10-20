@@ -38,9 +38,11 @@ Az adatokat egyelőre kézzel gépelem be az NNK adatközlései alapján, napont
 
 (Személyes megjegyzés zárójelben: egy szégyen az országnak, hogy miközben a macedón (macedón!) közegészségügy [ilyet](https://gdi-sk.maps.arcgis.com/apps/opsdashboard/index.html#/2096bd4b051b42948ac3f5747e80c3a5) működtet (most a sportszerűség kedvéért a nyugati példákat nem is idézem...), addig Magyarországon oda nem sikerült eljutni, így a járvány harmadik hetére, hogy egy életkori, vagy nemi bontás nyilvánosan elérhető legyen. De még a napi esetszámot is kézzel kell kivonni az egyedül közölt kumulált számból, és átpötyögni egy táblázatba. Mindezt 2020-ban. Szerintem ez így szegénységi bizonyítvány az egész magyar népegészségügyre nézve. Mert ez tényleg szándék kérdése, ne mondja nekem senki, hogy akkora erőforrásigénye lenne kirakni egy Excel-táblát napi esetszámmal és életkori/nemi bontással.)
 
-Frissítés (2020. július 29.): Hosszas gondolkodás után végülis átállítottam az oldal adatforrását a Johns Hopkins adatbázisra, így az oldal innentől teljesen automatikusan és naponta frissül. Jobban örültem volna az ECDC vagy WHO használatának (egy fokkal mégis csak "hivatalosabbak"), de mindkettőben vannak hibák - ami amúgy szintén megérne egy misét... - míg a Johns Hopkins hónapokra visszamenően helyes számokat tartalmaz.
+Frissítés (2020. július 29.): Hosszas gondolkodás után végülis átállítottam az oldal adatforrását a [Johns Hopkins adatbázisra](https://github.com/CSSEGISandData/COVID-19), így az oldal innentől teljesen automatikusan és naponta frissül. Jobban örültem volna az ECDC vagy WHO használatának (egy fokkal mégis csak "hivatalosabbak"), de mindkettőben vannak hibák - ami amúgy szintén megérne egy misét... - míg a Johns Hopkins hónapokra visszamenően helyes számokat tartalmaz.
 
-Az elvégzett tesztek számának adatforrása az Our World in Data (OWID).
+Az elvégzett tesztek számának adatforrása az Our World in Data ([OWID](https://github.com/owid/covid-19-data/tree/master/public/data)).
+
+A többlethalálozási számításokhoz a heti halálozási adatok forrása a Központi Statisztikai Hivatal ([STADAT évközi 1.2](http://www.ksh.hu/docs/hun/xstadat/xstadat_evkozi/e_wnh004f.html)).
 
 ## Mik a fontos eredmények?
 
