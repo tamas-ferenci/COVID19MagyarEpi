@@ -63,6 +63,17 @@ RawData$NumDate <- as.numeric(RawData$Date)-min(as.numeric(RawData$Date))+1
 # RawData$Inc <- RawData$CaseNumber/Population*1e6
 saveRDS(RawData, file = "/srv/shiny-server/COVID19MagyarEpi/RawData.rds")
 
+cfrsensgrid <- expand.grid(DDTmu = seq(7, 21, 0.1), DDTsd = seq(9, 15, 0.1))
+cfrsensgrid$meanlog <- log(cfrsensgrid$DDTmu)-log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1)/2
+cfrsensgrid$sdlog <- sqrt(log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1))
+LastCumDeathNumber <- tail(RawData$CumDeathNumber,1)
+cfrsensgrid$`Korrigált halálozási arány [%]` <- apply(cfrsensgrid, 1, function(x) {
+  discrdist <- distcrete::distcrete("lnorm", 1, meanlog = x["meanlog"], sdlog = x["sdlog"])
+  LastCumDeathNumber/sum(sapply(1:nrow(RawData),
+                                function(i) sum(sapply(0:(i-1), function(j) RawData$CaseNumber[i-j]*discrdist$d(j)))))*100
+})
+saveRDS(cfrsensgrid, "/srv/shiny-server/COVID19MagyarEpi/cfrsensgrid.rds")
+
 tf <- tempfile(fileext = ".xls")
 download.file("https://www.ksh.hu/docs/hun/xstadat/xstadat_evkozi/xls/1_2h.xls", tf, mode = "wb")
 RawData <- as.data.table(XLConnect::readWorksheetFromFile(tf, 1, startRow = 4,
@@ -99,13 +110,3 @@ saveRDS(RawData, "/srv/shiny-server/COVID19MagyarEpi/ExcessMort.rds")
 # result <- covidestim::run(cfg)
 # saveRDS(result, file = "/srv/shiny-server/COVID19MagyarEpi/CovidestimResult.rds")
 
-cfrsensgrid <- expand.grid(DDTmu = seq(7, 21, 0.1), DDTsd = seq(9, 15, 0.1))
-cfrsensgrid$meanlog <- log(cfrsensgrid$DDTmu)-log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1)/2
-cfrsensgrid$sdlog <- sqrt(log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1))
-LastCumDeathNumber <- tail(RawData$CumDeathNumber,1)
-cfrsensgrid$`Korrigált halálozási arány [%]` <- apply(cfrsensgrid, 1, function(x) {
-  discrdist <- distcrete::distcrete("lnorm", 1, meanlog = x["meanlog"], sdlog = x["sdlog"])
-  LastCumDeathNumber/sum(sapply(1:nrow(RawData),
-                                function(i) sum(sapply(0:(i-1), function(j) RawData$CaseNumber[i-j]*discrdist$d(j)))))*100
-})
-saveRDS(cfrsensgrid, "/srv/shiny-server/COVID19MagyarEpi/cfrsensgrid.rds")

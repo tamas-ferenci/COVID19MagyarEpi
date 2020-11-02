@@ -9,8 +9,8 @@ class(LogisticDeriv) <- "nonlin"
 
 predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = "Poisson", level = 95, wind = NA,
                      projper = 0, deltar = NA, deltardate = NA) {
-  if(any(is.na(wind))) wind <- c(rd$NumDate[1], tail(rd$NumDate,1))
-  if(projper>0) rd <- rbind(rd, data.table(Date = seq.Date(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
+  if(any(is.na(wind))) wind <- range(rd$Date)
+  if(projper>0) rd <- rbind(rd, data.table(Date = seq(tail(rd$Date,1), tail(rd$Date,1)+projper, by = "days"),
                                            CaseNumber = NA, DeathNumber = NA, TestNumber = NA, fracpos = NA,
                                            CumCaseNumber = NA, CumDeathNumber = NA, CumTestNumber = NA,
                                            NumDate = tail(rd$NumDate,1):(tail(rd$NumDate,1)+projper)))
@@ -42,7 +42,7 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
     if(fform=="Logisztikus") family <- quasipoisson(link = "log")
     data <- rd
   }
-  parlist <- list(formula = fitformula, data = data[NumDate>=wind[1]&NumDate<=wind[2]&!is.na(data[[what]])])
+  parlist <- list(formula = fitformula, data = data[Date>=wind[1]&Date<=wind[2]&!is.na(data[[what]])])
   startval <- if(fform=="Logisztikus") {
     z <- parlist$data[[what]]
     rng <- range(z)
@@ -80,9 +80,9 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
                          loessfit = TRUE, ci = TRUE, conf = 95, delta = FALSE, deltadate = NA, forecast = FALSE) {
   pred$pred$col <- is.na(pred$pred[[what]])
   ggplot(pred$pred, aes_string(x = "Date", y = what)) +
-    {if(any(pred$wind!=c(1, nrow(pred$pred[!is.na(pred$pred[[what]])]))))
-      annotate("rect", ymin = -Inf, ymax = +Inf, xmin = pred$pred$Date[1]+pred$wind[1]-1,
-               xmax = pred$pred$Date[1]+pred$wind[2]-1, alpha = 0.1, fill = "orange")} +
+    {if(any(pred$wind!=range(pred$pred$Date[!is.na(pred$pred[[what]])])))
+      annotate("rect", ymin = -Inf, ymax = +Inf, xmin = pred$wind[1],
+               xmax = pred$wind[2], alpha = 0.1, fill = "orange")} +
     geom_point(size = 3) +
     labs(x = "Dátum", y = paste0("Napi ", if(what=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]")) +
     {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +

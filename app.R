@@ -97,8 +97,10 @@ ui <- fluidPage(
                                    conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1",
                                                     radioButtons("epicurveFform", "Függvényforma",
                                                                  c("Exponenciális", "Hatvány", "Logisztikus")),
-                                                    sliderInput("epicurveWindow", "Ablakozás a függvényillesztéshez [nap]:", 1,
-                                                                nrow(RawData), c(1, nrow(RawData)), 1)
+                                                    dateRangeInput("epicurveWindow", "Ablakozás a függvényillesztéshez",
+                                                                   min(RawData$Date), max(RawData$Date),
+                                                                   min(RawData$Date), max(RawData$Date),
+                                                                   weekstart = 1, language = "hu", separator = "-")
                                    )
                             ),
                             column(3,
@@ -181,6 +183,7 @@ ui <- fluidPage(
                                    numericInput("projempPeriods", "Előrejelzett napok száma", 3, 1, 14, 1),
                                    conditionalPanel("input.projempType=='Grafikon'",
                                                     checkboxInput("projempLogy", "Függőleges tengely logaritmikus")),
+                                   checkboxInput("projempLoessfit", "Simítógörbe illesztése", TRUE),
                                    checkboxInput("projempCi", "Konfidenciaintervallum megjelenítése", TRUE),
                                    conditionalPanel("input.projempCi==1",
                                                     numericInput("projempConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
@@ -191,8 +194,10 @@ ui <- fluidPage(
                                                 c("Exponenciális", "Hatvány", "Logisztikus")),
                                    radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális"),
                                                 selected = "Poisson"),
-                                   sliderInput("projempWindow", "Ablakozás", 1, nrow(RawData),
-                                               c(nrow(RawData)-14, nrow(RawData)), 1)
+                                   dateRangeInput("projempWindow", "Ablakozás",
+                                                  max(RawData$Date)-14, max(RawData$Date),
+                                                  min(RawData$Date), max(RawData$Date),
+                                                  weekstart = 1, language = "hu", separator = "-")
                             ),
                             column(3,
                                    radioButtons("projempFuture", "Jövőbeli növekedés:", c("Tényadat",
@@ -268,7 +273,11 @@ ui <- fluidPage(
                           fluidRow(
                             column(3, radioButtons("reprType", "Megjelenítés", c("Grafikon", "Táblázat"))),
                             column(3,
-                                   sliderInput("reprWindow", "Ablakozás:", 1, nrow(RawData), c(1, nrow(RawData)), 1)
+                                   dateRangeInput("reprWindow", "Ablakozás",
+                                                  min(RawData$Date), max(RawData$Date),
+                                                  min(RawData$Date), max(RawData$Date),
+                                                  weekstart = 1, language = "hu", separator = "-")
+                                   
                             ),
                             column(3,
                                    numericInput("reprSImu", "A serial interval várható értéke:", SImuDefault, 0.01, 20, 0.01),
@@ -336,7 +345,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.31"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.32"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -413,7 +422,7 @@ server <- function(input, output, session) {
   
   output$testpositivityGraph <- renderPlot({
     ggplot(RawData, aes(x = Date, y = fracpos, CaseNumber = CaseNumber, TestNumber = TestNumber)) + geom_point() +
-      {if(input$testpositivitySmoothfit) geom_smooth(method = "gam", formula = cbind(CaseNumber, TestNumber) ~ s(x),
+      {if(input$testpositivitySmoothfit) geom_smooth(method = "gam", formula = cbind(CaseNumber, TestNumber-CaseNumber) ~ s(x),
                                                      method.args = list(family = binomial(link = "logit")),
                                                      se = input$testpositivityCi, level = input$testpositivityConf/100)} +
       scale_x_date(date_breaks = "month", date_labels = "%b") +
@@ -433,7 +442,7 @@ server <- function(input, output, session) {
   })
   
   output$projempGraph <- renderPlot({
-    epicurvePlot(dataInputProjemp(), input$projempOutcome, input$projempLogy, TRUE, FALSE, input$projempCi, NA,
+    epicurvePlot(dataInputProjemp(), input$projempOutcome, input$projempLogy, TRUE, input$projempLoessfit, input$projempCi, NA,
                  input$projempFuture!="Tényadat", input$projempDeltarDate, TRUE)
   })
   
@@ -456,7 +465,8 @@ server <- function(input, output, session) {
                                   "halálozás-", "szám [fő/nap]")), readOnly = TRUE, height = 500)
   })
   
-  dataInputRepr <- reactive(reprData(RawData$CaseNumber, input$reprSImu, input$reprSIsd, input$reprWindow))
+  dataInputRepr <- reactive(reprData(RawData$CaseNumber, input$reprSImu, input$reprSIsd,
+                                     match(input$reprWindow, RawData$Date)))
   
   output$reprGraph <- renderPlot({
     p1 <- ggplot(dataInputRepr(), aes(y = `Módszer`, x = R, xmin = lwr, xmax = upr)) + geom_point() + geom_errorbar() +
@@ -550,10 +560,10 @@ server <- function(input, output, session) {
         geom_line(data = subset(sims, .id==0), aes(y = med), size = 1.5) +
         geom_point(data = subset(sims, is.na(.id)), size = 3, color = "black")  +
         labs(x = "Dátum", y = "Napi esetszám [fő/nap]") + guides(color = FALSE, fill = FALSE) +
-        coord_trans(y = if(logy) scales::pseudo_log_trans() else scales::identity_trans(),
+        coord_trans(y = if(input$projcompLogy) scales::pseudo_log_trans() else scales::identity_trans(),
                     xlim = c.Date(NA, input$projcompEnd),
                     ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber, na.rm = TRUE))) +
-        geom_vline(xintercept = rhandsontable::hot_to_r(input$projcompInput)$Date)
+        geom_vline(xintercept = as.numeric(rhandsontable::hot_to_r(input$projcompInput)$Date))
     }
   })
   
@@ -649,7 +659,7 @@ server <- function(input, output, session) {
   output$cfrSensGraph <- renderPlot({
     cfrsensgrid$`Korrigált kumulált esetszám [fő]` <- cfrsensgrid$`Korrigált halálozási arány [%]`/input$cfrSensBench*
       tail(RawData$CumCaseNumber,1)
-    ggplot(cfrsensgrid, aes(x = DDTmu, y = DDTsd)) + geom_tile(aes(fill = `Korrigált halálozási arány [%]`)) +
+    ggplot(cfrsensgrid, aes(x = DDTmu, y = DDTsd)) + geom_raster(aes(fill = `Korrigált halálozási arány [%]`)) +
       scale_fill_continuous(guide = guide_colorbar(order = 1)) +
       ggnewscale::new_scale_fill() + geom_tile(aes(fill = `Korrigált kumulált esetszám [fő]`)) +
       scale_fill_continuous(guide = guide_colorbar(order = 2)) + theme(legend.position = "right", legend.box = "horizontal") +
