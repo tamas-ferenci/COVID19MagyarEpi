@@ -6,6 +6,8 @@
 
 3. A projekt elsődleges célközönségét a szakmában dolgozók jelentik, de minden tőlem telhetőt megtettem, hogy itt, illetve az egyes pontok Magyarázat nevű füleiben -- ha a statisztikai részleteket nem is -- de az eredmények jelentését, értelmét, és mindenekelőtt a belőle levonható következtetéseket minden érdeklődő laikus számára érthetően megmagyarázzam. Ettől elválasztva, tömören igyekeztem az adott módszer matematikai hátterét és számítástechnikai megvalósítást is összefoglalni a Magyarázat füleken.
 
+4. Nagyon fontos, hogy egy eredmény csak akkor használható, ha értjük annak a limitációit, hibaforrásait is! (Például a reprodukciós szám az esetszámból van kiszámolva, ami függ a tesztelési aktivitástól, az aluldetektálás egy elméleti halálozási rátát használ, ami függhet attól, hogy melyik korosztályban terjed elsősorban a járvány stb.) Ezekre a Magyarázat pontokban szintén igyekeztem felhívni a figyelmet.
+
 ## Mi ez az egész projekt?
 
 Az utóbbi évtizedekben egyre többet és többet megértettünk azokból a tényezőkből, melyek a járványok kitörését és lefutását meghatározzák. Kialakult egy új tudományterület, a biostatisztika, az epidemiológia, a biomatematika elemeiből építkezve, mely arra a felismerésre épül, hogy az e tényezők -- biológiaitól egészen a szociológiaiakig -- összhatásaként kialakuló járványlefutás matematikai eszközökkel leírható. Ennek a pontossága elért arra a szintre, hogy ez az eszköztár többé már nem csak az elméleti alapkutatóknak érdekes, hanem a létező legkonkrétabb gyakorlati kérdések eldöntésében is létfontosságú segítséget tud adni a szakembereknek.

@@ -27,12 +27,12 @@ RawData <- rbind(
              CaseNumber = diff(as.numeric(RawData[RawData$Country.Region=="Hungary", -(1:104)])),
              DeathNumber = diff(as.numeric(RawData2[RawData2$Country.Region=="Hungary", -(1:104)]))))
 
-# RawData <- rbind(RawData, data.table(Date = as.Date("2020-10-13"), CaseNumber = 920, DeathNumber = 11))
+# RawData <- rbind(RawData, data.table(Date = as.Date("2020-11-11"), CaseNumber = 3927, DeathNumber = 87))
 
 RawData2 <- fread("https://covid.ourworldindata.org/data/owid-covid-data.csv")
 RawData2 <- RawData2[location=="Hungary"&tests_units=="tests performed", .(Date = date-1, TestNumber = new_tests)]
-# RawData2 <- rbind(RawData2, data.table(Date = as.IDate(c("2020-09-25", "2020-09-26", "2020-09-27")),
-#                                        TestNumber = c(11782, 10073, 7065)))
+# RawData2 <- rbind(RawData2, data.table(Date = as.IDate(c("2020-11-09", "2020-11-10")),
+                                       # TestNumber = c(13068, 20987)))
 # RawData2 <- rbind(RawData2, data.table(Date = as.IDate(c("2020-09-30")),TestNumber = c(11972)))
 
 RawData <- merge(RawData, RawData2, sort = FALSE, all.x = TRUE)
@@ -69,8 +69,10 @@ cfrsensgrid$sdlog <- sqrt(log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1))
 LastCumDeathNumber <- tail(RawData$CumDeathNumber,1)
 cfrsensgrid$`Korrigált halálozási arány [%]` <- apply(cfrsensgrid, 1, function(x) {
   discrdist <- distcrete::distcrete("lnorm", 1, meanlog = x["meanlog"], sdlog = x["sdlog"])
+  dj <- discrdist$d(0:(nrow(RawData)-1))
   LastCumDeathNumber/sum(sapply(1:nrow(RawData),
-                                function(i) sum(sapply(0:(i-1), function(j) RawData$CaseNumber[i-j]*discrdist$d(j)))))*100
+                                function(i) sum(sapply(0:(i-1), function(j)
+                                  RawData$CaseNumber[i-j]*dj[j+1]))))*100
 })
 saveRDS(cfrsensgrid, "/srv/shiny-server/COVID19MagyarEpi/cfrsensgrid.rds")
 
@@ -85,11 +87,15 @@ for(i in 2:ncol(RawData)) {
   RawData[[i]][RawData[[i]]=="–"] <- 0
   RawData[[i]] <- as.numeric(RawData[[i]])
 }
+RawData$Male_85 <- RawData$Male_85 + RawData$Male_90
+RawData$Female_85 <- RawData$Female_85 + RawData$Female_90
+RawData[,!names(RawData)%in%c("Male_90", "Female_90")]
 RawData <- melt(RawData, id.vars = "date", variable.factor = FALSE, value.name = "outcome")
 RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
 RawData$AGE <- as.numeric(sapply(strsplit(RawData$variable, "_"), `[`, 2))
 PopPyramid <- readRDS("PopPyramid2020.rds")
-PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION, unique(RawData$date)),
+PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION,
+                                       unique(RawData$date)),
                                 list(date = x, population = y)), .(AGE, SEX)]
 RawData <- merge(RawData, PopPyramid)
 RawData$isoweek <- lubridate::isoweek(RawData$date)

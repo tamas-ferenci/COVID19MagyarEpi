@@ -14,6 +14,8 @@ A többlethalálozás adatnak még egy baja van: az, hogy lassú, a leglassabb a
 
 ## Matematikai részletek
 
+### Többlethalálozás modellezése
+
 A valószínűségi modellünk:
 \[
 	Y_t \mid \varepsilon_t \sim \text{Poi}\left(\mu_t\left[1+f\left(t\right)\right]\varepsilon_t\right),
@@ -23,6 +25,10 @@ ahol $\varepsilon_t$ nem feltétlenül fehérzaj, lehet autokorrelált, az adato
 	\mu_t = N_t \exp\left[\alpha\left(t\right)+s\left(t\right)+w\left(t\right)\right],
 \]
 ahol $\alpha\left(t\right)$ a hosszú távú -- lassan változó -- trend, $s\left(t\right)$ az éven belüli mintázat (szezonalitás), $w\left(t\right)$ pedig a hét napja hatás (ha napi adatunk van), és $N_t$ a háttérpopuláció. $f\left(t\right)$ lesz a keresett többlet (szorzóként, hiszen log link mellett multiplikatív az egész modell). A modell becslése cseles, ML, de óvatosan kell eljárni ($\varepsilon_t$ is elég általános, és $f\left(t\right)$ is nézhet ki furcsán, pl. szakadása van).
+
+### Hét számozása
+
+A "hét sorszáma" az ISO 8601 szerinti sorszám.
 
 ## Számítástechnikai részletek
 

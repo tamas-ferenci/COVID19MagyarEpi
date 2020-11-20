@@ -137,6 +137,15 @@ ui <- fluidPage(
                             )
                           )
                  ),
+                 tabPanel("Többlethalálozás és regisztrált halálozás",
+                          plotOutput("excessandobsmortGraph"),
+                          hr(),
+                          fluidRow(
+                            column(3,
+                                   numericInput("excessandobsmortConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)
+                            )
+                          )
+                 ),
                  tabPanel("Magyarázat", withMathJax(includeMarkdown("excessmortExplanation.md")))
                )
              )
@@ -345,7 +354,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.32"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.34"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -384,8 +393,8 @@ server <- function(input, output, session) {
   
   output$excessmortGraph <- renderPlot({
     stratlist <- c("date", switch(input$excessmortStratify,
-                                     "Nem" = "SEX", "Életkor" = "AGE",
-                                     "Nem és életkor" = c("AGE", "SEX")))
+                                  "Nem" = "SEX", "Életkor" = "AGE",
+                                  "Nem és életkor" = c("AGE", "SEX")))
     ggplot(ExcessMort[,.(outcome = sum(outcome), population = sum(population), isoyear = isoyear,
                          isoweek = isoweek), stratlist],
            aes(x = isoweek, y = outcome/population*1e5, group = isoyear,
@@ -394,7 +403,7 @@ server <- function(input, output, session) {
       {if(input$excessmortStratify=="Nem") facet_wrap(vars(SEX))} +
       {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
       {if(input$excessmortStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")} +
-      labs(x = "ISO hét", y = "Mortalitás [/100 ezer fő/hét]")
+      labs(x = "Hét sorszáma", y = "Mortalitás [/100 ezer fő/hét]")
   })
   
   output$excessmortModelGraph <- renderPlot({
@@ -404,9 +413,9 @@ server <- function(input, output, session) {
     
     fitStrat <- ExcessMort[,.(outcome = sum(outcome), population = sum(population)), stratlist][
       ,with(excessmort::excess_model(.SD, min(ExcessMort$date), max(ExcessMort$date),
-                                                       exclude = exclude_dates),
-                              list(date = date, y = 100 * (observed - expected)/expected,
-                                   increase = 100 * fitted, sd = 100 * sd, se = 100 * se)),
+                                     exclude = exclude_dates),
+            list(date = date, y = 100 * (observed - expected)/expected,
+                 increase = 100 * fitted, sd = 100 * sd, se = 100 * se)),
       c(stratlist[-1])]
     
     z <- qnorm(1 - 0.05/2)
@@ -418,6 +427,36 @@ server <- function(input, output, session) {
       {if(input$excessmortModelStratify=="Nem") facet_wrap(vars(SEX))} +
       {if(input$excessmortModelStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
       {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")}
+  })
+  
+  output$excessandobsmortGraph <- renderPlot({
+    z <- qnorm(1 - (1-input$excessandobsmortConf/100)/2)
+    res <- merge(
+      with(excessmort::excess_model(ExcessMort[, .(outcome = sum(outcome), population = sum(population)), .(isoyear, isoweek, date)],
+                                    min(ExcessMort$date), max(ExcessMort$date),
+                                    exclude = exclude_dates),
+           data.table(date = date, isoyear = lubridate::isoyear(date), isoweek = lubridate::isoweek(date),
+                      excess = expected*fitted,
+                      se = sapply(1:length(date), function(i) {
+                        mu <- matrix(expected[i], nr = 1)
+                        x <- matrix(x[i,], nr = 1)
+                        sqrt(mu %*% x %*% betacov %*% t(x) %*% t(mu))
+                      }))),
+      RawData[,.(isoyear = lubridate::isoyear(Date), isoweek = lubridate::isoweek(Date), DeathNumber)][
+        ,.(DeathNumber = as.numeric(sum(DeathNumber))), .(isoyear, isoweek)],
+      by = c("isoyear", "isoweek"))
+    res$lwr <- res$excess - z*res$se
+    res$upr <- res$excess + z*res$se
+    
+    cols <- c("excess" = "red", "observed" = "blue")
+    
+    ggplot(res, aes(x = date, y = excess, ymin = lwr, ymax = upr, color = "excess")) + geom_line() +
+      geom_ribbon(alpha = 0.1, linetype = 0, fill = "red") + geom_hline(yintercept = 0) +
+      geom_line(aes(x = date, y = DeathNumber, color = "observed")) + guides(fill = FALSE) +
+      scale_color_manual(name = "", values = cols, labels = c("Többlethalálozás", "Regisztrált koronavírus-halálozás"),
+                         guide = guide_legend(override.aes = aes(fill = NA))) +
+      labs(x = "Dátum", y = "Heti halálozás [fő/hét]") + scale_x_date(date_breaks = "month", date_labels = "%b") +
+      theme(legend.position = "bottom")
   })
   
   output$testpositivityGraph <- renderPlot({
