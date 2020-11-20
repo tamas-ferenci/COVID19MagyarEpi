@@ -87,7 +87,7 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
     labs(x = "Dátum", y = paste0("Napi ", if(what=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]")) +
     {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +
     {if(ci&(funfit|forecast)) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = col), alpha = 0.2, show.legend = FALSE)} +
-    {if(loessfit) geom_smooth(method = "gam", formula = y ~ s(x), method.args = list(family = mgcv::nb()),
+    {if(loessfit) geom_smooth(method = "gam", formula = y ~ s(x, bs = "ad"), method.args = list(family = mgcv::nb()),
                               se = ci, level = conf/100)} +
     {if(delta) geom_vline(xintercept = deltadate)} +
     coord_trans(y = if(logy) scales::pseudo_log_trans() else scales::identity_trans(),

@@ -38,6 +38,7 @@ RawData2 <- RawData2[location=="Hungary"&tests_units=="tests performed", .(Date 
 RawData <- merge(RawData, RawData2, sort = FALSE, all.x = TRUE)
 
 RawData$TestNumber[1:6] <- c(109, 109, 50, 43, 110, 110)
+RawData$TestNumber[257:258] <- mean(RawData$TestNumber[257:258])
 
 # tmp <- tempfile(fileext = ".xlsx")
 # download.file(url = paste0("https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-",
