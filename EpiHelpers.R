@@ -93,7 +93,9 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
     coord_trans(y = if(logy) scales::pseudo_log_trans() else scales::identity_trans(),
                 ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
                                    pred$pred$upr[is.na(pred$pred[[what]])])))) +
-    scale_x_date(date_breaks = "month", date_labels = "%b")
+    scale_x_date(date_breaks = "month", date_labels = "%b") +
+    theme(plot.caption = element_text(face = "bold", hjust = 0)) +
+    labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
 }
 
 grText <- function(m, fun, deltar = 0, future = FALSE, deltarDate = NA, startDate = NA) {

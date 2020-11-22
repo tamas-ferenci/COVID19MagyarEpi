@@ -90,7 +90,7 @@ for(i in 2:ncol(RawData)) {
 }
 RawData$Male_85 <- RawData$Male_85 + RawData$Male_90
 RawData$Female_85 <- RawData$Female_85 + RawData$Female_90
-RawData[,!names(RawData)%in%c("Male_90", "Female_90")]
+RawData <- RawData[,!names(RawData)%in%c("Male_90", "Female_90"), with = FALSE]
 RawData <- melt(RawData, id.vars = "date", variable.factor = FALSE, value.name = "outcome")
 RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
 RawData$AGE <- as.numeric(sapply(strsplit(RawData$variable, "_"), `[`, 2))

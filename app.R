@@ -17,6 +17,8 @@ cfrsensgrid <- readRDS("cfrsensgrid.rds")
 ExcessMort <- readRDS("ExcessMort.rds")
 exclude_dates <- seq(as.Date("2020-03-01"), max(ExcessMort$date), by = "day")
 
+ggsave169 <- function(...) ggsave(..., width = 16, height = 9)
+
 ui <- fluidPage(
   theme = "owntheme.css",
   
@@ -48,7 +50,8 @@ ui <- fluidPage(
                                                         "Írta: Ferenci Tamás.")),
     tags$meta(name = "DC.Publisher", content = "https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/"),
     tags$meta(name = "DC.Contributor", content = "Ferenci Tamás"),
-    tags$meta(name = "DC.Language", content = "hu_HU")
+    tags$meta(name = "DC.Language", content = "hu_HU"),
+    tags$style(".btn {margin-bottom:10px}")
   ),
   
   tags$div(id = "fb-root"),
@@ -68,49 +71,109 @@ ui <- fluidPage(
   
   navlistPanel(
     tabPanel("Magyarázat", withMathJax(includeMarkdown("generalExplanation.md"))),
-    tabPanel("Járványgörbe",
+    tabPanel("Járványgörbe (esetszám)",
              fluidPage(
                tabsetPanel(
-                 tabPanel("Járványgörbe",
-                          conditionalPanel("input.epicurveType=='Grafikon'", plotOutput("epicurveGraph")),
-                          conditionalPanel("input.epicurveType=='Táblázat'", rhandsontable::rHandsontableOutput("epicurveTab")),
-                          conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1", textOutput("epicurveText")),
+                 tabPanel("Járványgörbe (esetszám)",
+                          conditionalPanel("input.epicurveIncType=='Grafikon'", plotOutput("epicurveIncGraph")),
+                          conditionalPanel("input.epicurveIncType=='Táblázat'", rhandsontable::rHandsontableOutput("epicurveIncTab")),
+                          conditionalPanel("input.epicurveIncType=='Grafikon'&input.epicurveIncFunfit==1", textOutput("epicurveIncText")),
                           hr(),
                           fluidRow(
-                            column(3, radioButtons("epicurveOutcome", "Vizsgált végpont",
-                                                   c("Esetszám" = "CaseNumber", "Halálozások száma" = "DeathNumber"))),
                             column(3,
-                                   radioButtons("epicurveType", "Megjelenítés", c("Grafikon", "Táblázat")),
-                                   conditionalPanel("input.epicurveType=='Grafikon'",
-                                                    checkboxInput("epicurveLogy", "Függőleges tengely logaritmikus"),
-                                                    checkboxInput("epicurveLoessfit", "Simítógörbe illesztése", TRUE),
-                                                    checkboxInput("epicurveFunfit", "Függvény illesztése"),
-                                                    conditionalPanel("input.epicurveFunfit==1|input.epicurveLoessfit==1",
-                                                                     checkboxInput("epicurveCi",
+                                   radioButtons("epicurveIncType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   conditionalPanel("input.epicurveIncType=='Grafikon'",
+                                                    downloadButton("epicurveIncGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("epicurveIncGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.epicurveIncType=='Táblázat'",
+                                                    downloadButton("epicurveIncTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )
+                            ),
+                            column(3,
+                                   conditionalPanel("input.epicurveIncType=='Grafikon'",
+                                                    checkboxInput("epicurveIncLogy", "Függőleges tengely logaritmikus"),
+                                                    checkboxInput("epicurveIncLoessfit", "Simítógörbe illesztése", TRUE),
+                                                    checkboxInput("epicurveIncFunfit", "Függvény illesztése"),
+                                                    conditionalPanel("input.epicurveIncFunfit==1|input.epicurveIncLoessfit==1",
+                                                                     checkboxInput("epicurveIncCi",
                                                                                    "Konfidenciaintervallum megjelenítése",
                                                                                    TRUE)),
                                                     conditionalPanel(
-                                                      "(input.epicurveFunfit==1|input.epicurveLoessfit==1)&input.epicurveCi==1",
-                                                      numericInput("epicurveConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
+                                                      "(input.epicurveIncFunfit==1|input.epicurveIncLoessfit==1)&input.epicurveIncCi==1",
+                                                      numericInput("epicurveIncConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
                             ),
                             column(3,
-                                   conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1",
-                                                    radioButtons("epicurveFform", "Függvényforma",
+                                   conditionalPanel("input.epicurveIncType=='Grafikon'&input.epicurveIncFunfit==1",
+                                                    radioButtons("epicurveIncFform", "Függvényforma",
                                                                  c("Exponenciális", "Hatvány", "Logisztikus")),
-                                                    dateRangeInput("epicurveWindow", "Ablakozás a függvényillesztéshez",
+                                                    dateRangeInput("epicurveIncWindow", "Ablakozás a függvényillesztéshez",
                                                                    min(RawData$Date), max(RawData$Date),
                                                                    min(RawData$Date), max(RawData$Date),
                                                                    weekstart = 1, language = "hu", separator = "-")
                                    )
                             ),
                             column(3,
-                                   conditionalPanel("input.epicurveType=='Grafikon'&input.epicurveFunfit==1",
-                                                    radioButtons("epicurveDistr", "Eloszlás",
+                                   conditionalPanel("input.epicurveIncType=='Grafikon'&input.epicurveIncFunfit==1",
+                                                    radioButtons("epicurveIncDistr", "Eloszlás",
                                                                  c("Lognormális", "Poisson", "NB/QP"), selected = "Poisson"))
                             )
                           )
                  ),
-                 tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveExplanation.md")))
+                 tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveIncExplanation.md")))
+               )
+             )
+    ),
+    tabPanel("Járványgörbe (halálozások száma)",
+             fluidPage(
+               tabsetPanel(
+                 tabPanel("Járványgörbe",
+                          conditionalPanel("input.epicurveMortType=='Grafikon'", plotOutput("epicurveMortGraph")),
+                          conditionalPanel("input.epicurveMortType=='Táblázat'", rhandsontable::rHandsontableOutput("epicurveMortTab")),
+                          conditionalPanel("input.epicurveMortType=='Grafikon'&input.epicurveMortFunfit==1", textOutput("epicurveMortText")),
+                          hr(),
+                          fluidRow(
+                            column(3,
+                                   radioButtons("epicurveMortType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   conditionalPanel("input.epicurveMortType=='Grafikon'",
+                                                    downloadButton("epicurveMortGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("epicurveMortGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.epicurveMortType=='Táblázat'",
+                                                    downloadButton("epicurveMortTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )
+                            ),
+                            column(3,
+                                   conditionalPanel("input.epicurveMortType=='Grafikon'",
+                                                    checkboxInput("epicurveMortLogy", "Függőleges tengely logaritmikus"),
+                                                    checkboxInput("epicurveMortLoessfit", "Simítógörbe illesztése", TRUE),
+                                                    checkboxInput("epicurveMortFunfit", "Függvény illesztése"),
+                                                    conditionalPanel("input.epicurveMortFunfit==1|input.epicurveMortLoessfit==1",
+                                                                     checkboxInput("epicurveMortCi",
+                                                                                   "Konfidenciaintervallum megjelenítése",
+                                                                                   TRUE)),
+                                                    conditionalPanel(
+                                                      "(input.epicurveMortFunfit==1|input.epicurveMortLoessfit==1)&input.epicurveMortCi==1",
+                                                      numericInput("epicurveMortConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
+                            ),
+                            column(3,
+                                   conditionalPanel("input.epicurveMortType=='Grafikon'&input.epicurveMortFunfit==1",
+                                                    radioButtons("epicurveMortFform", "Függvényforma",
+                                                                 c("Exponenciális", "Hatvány", "Logisztikus")),
+                                                    dateRangeInput("epicurveMortWindow", "Ablakozás a függvényillesztéshez",
+                                                                   min(RawData$Date), max(RawData$Date),
+                                                                   min(RawData$Date), max(RawData$Date),
+                                                                   weekstart = 1, language = "hu", separator = "-")
+                                   )
+                            ),
+                            column(3,
+                                   conditionalPanel("input.epicurveMortType=='Grafikon'&input.epicurveMortFunfit==1",
+                                                    radioButtons("epicurveMortDistr", "Eloszlás",
+                                                                 c("Lognormális", "Poisson", "NB/QP"), selected = "Poisson"))
+                            )
+                          )
+                 ),
+                 tabPanel("Magyarázat", withMathJax(includeMarkdown("epicurveMortExplanation.md")))
                )
              )
     ),
@@ -122,6 +185,10 @@ ui <- fluidPage(
                           hr(),
                           fluidRow(
                             column(3,
+                                   downloadButton("excessmortGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                   downloadButton("excessmortGraphDlPNG", "Az ábra letöltése (PNG)")
+                            ),
+                            column(3,
                                    selectInput("excessmortStratify",
                                                "Rétegzés", c("Nincs", "Nem", "Életkor", "Nem és életkor"))
                             )
@@ -132,6 +199,10 @@ ui <- fluidPage(
                           hr(),
                           fluidRow(
                             column(3,
+                                   downloadButton("excessmortModelGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                   downloadButton("excessmortModelGraphDlPNG", "Az ábra letöltése (PNG)")
+                            ),
+                            column(3,
                                    selectInput("excessmortModelStratify",
                                                "Rétegzés", c("Nincs", "Nem", "Életkor", "Nem és életkor"))
                             )
@@ -141,6 +212,10 @@ ui <- fluidPage(
                           plotOutput("excessandobsmortGraph"),
                           hr(),
                           fluidRow(
+                            column(3,
+                                   downloadButton("excessandobsmortGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                   downloadButton("excessandobsmortGraphDlPNG", "Az ábra letöltése (PNG)")
+                            ),
                             column(3,
                                    numericInput("excessandobsmortConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)
                             )
@@ -160,6 +235,15 @@ ui <- fluidPage(
                           fluidRow(
                             column(3,
                                    radioButtons("testpositivityType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   conditionalPanel("input.testpositivityType=='Grafikon'",
+                                                    downloadButton("testpositivityGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("testpositivityGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.testpositivityType=='Táblázat'",
+                                                    downloadButton("testpositivityTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )
+                            ),
+                            column(3,
                                    conditionalPanel("input.testpositivityType=='Grafikon'",
                                                     checkboxInput("testpositivitySmoothfit", "Simítógörbe illesztése", TRUE),
                                                     conditionalPanel("input.testpositivitySmoothfit==1",
@@ -354,7 +438,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.35"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.36"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -372,26 +456,83 @@ server <- function(input, output, session) {
   observe(updateDateInput(session, "projempDeltarDate", max = max(RawData$Date)+input$projempPeriods-1))
   observe(updateDateInput(session, "projcompDeltaDate", max = input$projcompEnd))
   
-  dataInputEpicurve <- reactive({
-    predData(RawData, input$epicurveOutcome, input$epicurveFform, input$epicurveDistr, input$epicurveConf,
-             if(input$epicurveFunfit) input$epicurveWindow else NA)
+  dataInputEpicurveInc <- reactive({
+    predData(RawData, "CaseNumber", input$epicurveIncFform, input$epicurveIncDistr, input$epicurveIncConf,
+             if(input$epicurveIncFunfit) input$epicurveIncWindow else NA)
   })
   
-  output$epicurveGraph <- renderPlot({
-    epicurvePlot(dataInputEpicurve(), input$epicurveOutcome, input$epicurveLogy, input$epicurveFunfit,
-                 input$epicurveLoessfit, input$epicurveCi, input$epicurveConf)
+  output$epicurveIncGraph <- renderPlot({
+    epicurvePlot(dataInputEpicurveInc(), "CaseNumber", input$epicurveIncLogy, input$epicurveIncFunfit,
+                 input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf)
   })
   
-  output$epicurveText <- renderText(grText(dataInputEpicurve()$m, input$epicurveFform, startDate = min(RawData$Date)))
-  
-  output$epicurveTab <- rhandsontable::renderRHandsontable({
-    rhandsontable::rhandsontable(RawData[,c("Date", input$epicurveOutcome), with = FALSE],
-                                 colHeaders = c("Dátum",
-                                                paste0("Napi ", if(input$epicurveOutcome=="CaseNumber") "eset" else "halálozás-",
-                                                       "szám [fő/nap]")), readOnly = TRUE, height = 500)
+  dataInputEpicurveMort <- reactive({
+    predData(RawData, "DeathNumber", input$epicurveMortFform, input$epicurveMortDistr, input$epicurveMortConf,
+             if(input$epicurveMortFunfit) input$epicurveMortWindow else NA)
   })
   
-  output$excessmortGraph <- renderPlot({
+  output$epicurveMortGraph <- renderPlot({
+    epicurvePlot(dataInputEpicurveMort(), "DeathNumber", input$epicurveMortLogy, input$epicurveMortFunfit,
+                 input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf)
+  })
+  
+  output$epicurveIncText <- renderText(grText(dataInputEpicurveInc()$m, input$epicurveIncFform, startDate = min(RawData$Date)))
+  
+  output$epicurveMortText <- renderText(grText(dataInputEpicurveMort()$m, input$epicurveMortFform, startDate = min(RawData$Date)))
+  
+  output$epicurveIncTab <- rhandsontable::renderRHandsontable({
+    rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber"), with = FALSE],
+                                 colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE, height = 500)
+  })
+  
+  output$epicurveMortTab <- rhandsontable::renderRHandsontable({
+    rhandsontable::rhandsontable(RawData[,c("Date", "DeathNumber"), with = FALSE],
+                                 colHeaders = c("Dátum", "Napi halálozás-szám [fő/nap]"), readOnly = TRUE, height = 500)
+  })
+  
+  output$epicurveIncGraphDlPDF <- downloadHandler(
+    filename = paste0("JarvanygorbeEsetszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file,
+                                       epicurvePlot(dataInputEpicurveInc(), "CaseNumber", input$epicurveIncLogy, input$epicurveIncFunfit,
+                                                    input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf))
+  )
+  
+  output$epicurveIncGraphDlPNG <- downloadHandler(
+    filename = paste0("JarvanygorbeEsetszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file,
+                                       epicurvePlot(dataInputEpicurveInc(), "CaseNumber", input$epicurveIncLogy, input$epicurveIncFunfit,
+                                                    input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf))
+  )
+  
+  output$epicurveIncTabDlCSV <- downloadHandler(
+    filename = paste0("JarvanygorbeEsetszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) write.table(RawData[,c("Date", "CaseNumber"), with = FALSE],
+                                         file, sep = ";", dec = ",", row.names = FALSE,
+                                         col.names = c("Dátum", "Napi esetszám [fő/nap]"))
+  )
+  
+  output$epicurveMortGraphDlPDF <- downloadHandler(
+    filename = paste0("JarvanygorbeHalalozasszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file,
+                                       epicurvePlot(dataInputEpicurveMort(), "DeathNumber", input$epicurveMortLogy, input$epicurveMortFunfit,
+                                                    input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf))
+  )
+  
+  output$epicurveMortGraphDlPNG <- downloadHandler(
+    filename = paste0("JarvanygorbeHalalozasszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file,
+                                       epicurvePlot(dataInputEpicurveMort(), "DeathNumber", input$epicurveMortLogy, input$epicurveMortFunfit,
+                                                    input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf))
+  )
+  
+  output$epicurveMortTabDlCSV <- downloadHandler(
+    filename = paste0("JarvanygorbeHalalozasszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) write.table(RawData[,c("Date", "DeathNumber"), with = FALSE],
+                                         file, sep = ";", dec = ",", row.names = FALSE,
+                                         col.names = c("Dátum", "Napi halálozás-szám [fő/nap]"))
+  )
+  
+  dataInputexcessmortGraph <- reactive({
     stratlist <- c("date", switch(input$excessmortStratify,
                                   "Nem" = "SEX", "Életkor" = "AGE",
                                   "Nem és életkor" = c("AGE", "SEX")))
@@ -403,10 +544,24 @@ server <- function(input, output, session) {
       {if(input$excessmortStratify=="Nem") facet_wrap(vars(SEX))} +
       {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
       {if(input$excessmortStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")} +
-      labs(x = "Hét sorszáma", y = "Mortalitás [/100 ezer fő/hét]")
+      labs(x = "Hét sorszáma", y = "Mortalitás [/100 ezer fő/hét]") +
+      theme(plot.caption = element_text(face = "bold", hjust = 0)) +
+      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH")
   })
   
-  output$excessmortModelGraph <- renderPlot({
+  output$excessmortGraph <- renderPlot(dataInputexcessmortGraph())
+  
+  output$excessmortGraphDlPDF <- downloadHandler(
+    filename = paste0("Tobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file, dataInputexcessmortGraph())
+  )
+  
+  output$excessmortGraphDlPNG <- downloadHandler(
+    filename = paste0("Tobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file, dataInputexcessmortGraph())
+  )
+  
+  dataInputexcessmortModelGraph <- reactive({
     stratlist <- c("date", switch(input$excessmortModelStratify,
                                   "Nem" = "SEX", "Életkor" = "AGE",
                                   "Nem és életkor" = c("AGE", "SEX")))
@@ -426,12 +581,28 @@ server <- function(input, output, session) {
       labs(x = "Dátum", y = "Százalékos eltérés a várt értéktől") +
       {if(input$excessmortModelStratify=="Nem") facet_wrap(vars(SEX))} +
       {if(input$excessmortModelStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
-      {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")}
+      {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")} +
+      theme(plot.caption = element_text(face = "bold", hjust = 0)) +
+      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH")
   })
   
-  output$excessandobsmortGraph <- renderPlot({
+  output$excessmortModelGraph <- renderPlot(dataInputexcessmortModelGraph())
+  
+  output$excessmortModelGraphDlPDF <- downloadHandler(
+    filename = paste0("ModellezettTobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file, dataInputexcessmortModelGraph())
+  )
+  
+  output$excessmortModelGraphDlPNG <- downloadHandler(
+    filename = paste0("ModellezettTobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file, dataInputexcessmortModelGraph())
+  )
+  
+  dataInputexcessandobsmortGraph <- reactive({
     z <- qnorm(1 - (1-input$excessandobsmortConf/100)/2)
     res <- merge(
+      RawData[,.(isoyear = lubridate::isoyear(Date), isoweek = lubridate::isoweek(Date), DeathNumber)][
+        ,.(DeathNumber = as.numeric(sum(DeathNumber))), .(isoyear, isoweek)],
       with(excessmort::excess_model(ExcessMort[, .(outcome = sum(outcome), population = sum(population)), .(isoyear, isoweek, date)],
                                     min(ExcessMort$date), max(ExcessMort$date),
                                     exclude = exclude_dates),
@@ -441,12 +612,11 @@ server <- function(input, output, session) {
                         mu <- matrix(expected[i], nr = 1)
                         x <- matrix(x[i,], nr = 1)
                         sqrt(mu %*% x %*% betacov %*% t(x) %*% t(mu))
-                      }))),
-      RawData[,.(isoyear = lubridate::isoyear(Date), isoweek = lubridate::isoweek(Date), DeathNumber)][
-        ,.(DeathNumber = as.numeric(sum(DeathNumber))), .(isoyear, isoweek)],
-      by = c("isoyear", "isoweek"))
+                      }))), by = c("isoyear", "isoweek"), all.x = TRUE)
+    res$date <- ISOweek::ISOweek2date(paste0(res$isoyear, "-W", res$isoweek, "-1"))
     res$lwr <- res$excess - z*res$se
     res$upr <- res$excess + z*res$se
+    res <- res[isoweek%in%names(table(lubridate::isoweek(RawData$Date)))[table(lubridate::isoweek(RawData$Date))==7]]
     
     cols <- c("excess" = "red", "observed" = "blue")
     
@@ -456,24 +626,59 @@ server <- function(input, output, session) {
       scale_color_manual(name = "", values = cols, labels = c("Többlethalálozás", "Regisztrált koronavírus-halálozás"),
                          guide = guide_legend(override.aes = aes(fill = NA))) +
       labs(x = "Dátum", y = "Heti halálozás [fő/hét]") + scale_x_date(date_breaks = "month", date_labels = "%b") +
-      theme(legend.position = "bottom")
+      theme(legend.position = "bottom", plot.caption = element_text(face = "bold", hjust = 0)) +
+      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH és JHU CSSE")
   })
   
-  output$testpositivityGraph <- renderPlot({
+  output$excessandobsmortGraph <- renderPlot(dataInputexcessandobsmortGraph())
+  
+  output$excessandobsmortGraphDlPDF <- downloadHandler(
+    filename = paste0("TobblethalalozasEsRegisztraltHalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file, dataInputexcessandobsmortGraph())
+  )
+  
+  output$excessandobsmortGraphDlPNG <- downloadHandler(
+    filename = paste0("TobblethalalozasEsRegisztraltHalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file, dataInputexcessandobsmortGraph())
+  )
+  
+  dataInputtestpositivityGraph <- reactive({
     ggplot(RawData, aes(x = Date, y = fracpos, CaseNumber = CaseNumber, TestNumber = TestNumber)) + geom_point() +
       {if(input$testpositivitySmoothfit) geom_smooth(method = "gam", formula = cbind(CaseNumber, TestNumber-CaseNumber) ~ s(x),
                                                      method.args = list(family = binomial(link = "logit")),
                                                      se = input$testpositivityCi, level = input$testpositivityConf/100)} +
       scale_x_date(date_breaks = "month", date_labels = "%b") +
       scale_y_continuous(labels = function(x) x*100) + labs(x = "Dátum", y = "Tesztpozitivitási arány [%]") +
-      geom_hline(yintercept = 0.05, color = "red")
+      geom_hline(yintercept = 0.05, color = "red") +
+      theme(plot.caption = element_text(face = "bold", hjust = 0)) +
+      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE és OWID")
   })
+  
+  output$testpositivityGraph <- renderPlot(dataInputtestpositivityGraph())
+  
+  output$testpositivityGraphDlPDF <- downloadHandler(
+    filename = paste0("Tesztpozitivitas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file, dataInputtestpositivityGraph())
+  )
+  
+  output$testpositivityGraphDlPNG <- downloadHandler(
+    filename = paste0("Tesztpozitivitas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file, dataInputtestpositivityGraph())
+  )
   
   output$testpositivityTab <- rhandsontable::renderRHandsontable({
     rhandsontable::rhandsontable(RawData[,.(Date, CaseNumber, TestNumber, fracpos*100)],
                                  colHeaders = c("Dátum", "Napi esetszám [fő/nap]", "Napi tesztszám [db/nap]",
                                                 "Tesztpozitivitás [%]"), readOnly = TRUE, height = 500)
   })
+  
+  output$testpositivityTabDlCSV <- downloadHandler(
+    filename = paste0("Tesztpozitivitas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) write.table(RawData[,.(Date, CaseNumber, TestNumber, fracpos*100)],
+                                         file, sep = ";", dec = ",", row.names = FALSE,
+                                         col.names = c("Dátum", "Napi esetszám [fő/nap]",
+                                                       "Napi tesztszám [db/nap]", "Tesztpozitivitás [%]"))
+  )
   
   dataInputProjemp <- reactive({
     predData(RawData, input$projempOutcome, input$projempFform, input$projempDistr, input$projempConf, input$projempWindow,
