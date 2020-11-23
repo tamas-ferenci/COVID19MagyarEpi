@@ -108,6 +108,9 @@ RawData$datenum <- (as.numeric(RawData$date)-min(as.numeric(RawData$date)))/365.
 RawData$AGEcenter <- RawData$AGE+2.5
 RawData$AGEcenter[RawData$AGEcenter==2.5] <- 17.5
 RawData$SEX <- ifelse(RawData$SEX=="Male", "Férfi", "Nő")
+RawData$AGEf <- factor(RawData$AGE, levels = c(0, seq(35, 85, 5)),
+                       labels = c("0-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64",
+                                  "65-69", "70-74", "75-79", "80-84", "85-"))
 saveRDS(RawData, "/srv/shiny-server/COVID19MagyarEpi/ExcessMort.rds")
 
 # cfg <- covidestim::covidestim(ndays = nrow(RawData)) +

@@ -18,6 +18,7 @@ ExcessMort <- readRDS("ExcessMort.rds")
 exclude_dates <- seq(as.Date("2020-03-01"), max(ExcessMort$date), by = "day")
 
 ggsave169 <- function(...) ggsave(..., width = 16, height = 9)
+fwritecsv <- function(...) fwrite(..., sep = ";", dec = ",", row.names = FALSE, bom = TRUE)
 
 ui <- fluidPage(
   theme = "owntheme.css",
@@ -127,7 +128,7 @@ ui <- fluidPage(
     tabPanel("Járványgörbe (halálozások száma)",
              fluidPage(
                tabsetPanel(
-                 tabPanel("Járványgörbe",
+                 tabPanel("Járványgörbe (halálozások száma)",
                           conditionalPanel("input.epicurveMortType=='Grafikon'", plotOutput("epicurveMortGraph")),
                           conditionalPanel("input.epicurveMortType=='Táblázat'", rhandsontable::rHandsontableOutput("epicurveMortTab")),
                           conditionalPanel("input.epicurveMortType=='Grafikon'&input.epicurveMortFunfit==1", textOutput("epicurveMortText")),
@@ -185,8 +186,14 @@ ui <- fluidPage(
                           hr(),
                           fluidRow(
                             column(3,
-                                   downloadButton("excessmortGraphDlPDF", "Az ábra letöltése (PDF)"),
-                                   downloadButton("excessmortGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   radioButtons("excessmortType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   conditionalPanel("input.excessmortType=='Grafikon'",
+                                                    downloadButton("excessmortGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("excessmortGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.excessmortType=='Táblázat'",
+                                                    downloadButton("excessmortTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )
                             ),
                             column(3,
                                    selectInput("excessmortStratify",
@@ -195,12 +202,19 @@ ui <- fluidPage(
                           )
                  ),
                  tabPanel("Modellezett többlethalálozás",
-                          plotOutput("excessmortModelGraph"),
+                          conditionalPanel("input.excessmortModelType=='Grafikon'", plotOutput("excessmortModelGraph")),
+                          conditionalPanel("input.excessmortModelType=='Táblázat'", rhandsontable::rHandsontableOutput("excessmortModelTab")),
                           hr(),
                           fluidRow(
                             column(3,
-                                   downloadButton("excessmortModelGraphDlPDF", "Az ábra letöltése (PDF)"),
-                                   downloadButton("excessmortModelGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   radioButtons("excessmortModelType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   conditionalPanel("input.excessmortModelType=='Grafikon'",
+                                                    downloadButton("excessmortModelGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("excessmortModelGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.excessmortModelType=='Táblázat'",
+                                                    downloadButton("excessmortModelTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )
                             ),
                             column(3,
                                    selectInput("excessmortModelStratify",
@@ -209,12 +223,19 @@ ui <- fluidPage(
                           )
                  ),
                  tabPanel("Többlethalálozás és regisztrált halálozás",
-                          plotOutput("excessandobsmortGraph"),
+                          conditionalPanel("input.excessandobsmortType=='Grafikon'", plotOutput("excessandobsmortGraph")),
+                          conditionalPanel("input.excessandobsmortType=='Táblázat'", rhandsontable::rHandsontableOutput("excessandobsmortTab")),
                           hr(),
                           fluidRow(
                             column(3,
-                                   downloadButton("excessandobsmortGraphDlPDF", "Az ábra letöltése (PDF)"),
-                                   downloadButton("excessandobsmortGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   radioButtons("excessandobsmortType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                                   conditionalPanel("input.excessandobsmortType=='Grafikon'",
+                                                    downloadButton("excessandobsmortGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("excessandobsmortGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.excessandobsmortType=='Táblázat'",
+                                                    downloadButton("excessandobsmortTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )
                             ),
                             column(3,
                                    numericInput("excessandobsmortConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)
@@ -438,7 +459,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.36"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.37"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -506,9 +527,7 @@ server <- function(input, output, session) {
   
   output$epicurveIncTabDlCSV <- downloadHandler(
     filename = paste0("JarvanygorbeEsetszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
-    content = function(file) write.table(RawData[,c("Date", "CaseNumber"), with = FALSE],
-                                         file, sep = ";", dec = ",", row.names = FALSE,
-                                         col.names = c("Dátum", "Napi esetszám [fő/nap]"))
+    content = function(file) fwritecsv(RawData[,.(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber)], file)
   )
   
   output$epicurveMortGraphDlPDF <- downloadHandler(
@@ -527,23 +546,21 @@ server <- function(input, output, session) {
   
   output$epicurveMortTabDlCSV <- downloadHandler(
     filename = paste0("JarvanygorbeHalalozasszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
-    content = function(file) write.table(RawData[,c("Date", "DeathNumber"), with = FALSE],
-                                         file, sep = ";", dec = ",", row.names = FALSE,
-                                         col.names = c("Dátum", "Napi halálozás-szám [fő/nap]"))
+    content = function(file) fwritecsv(RawData[,.(`Dátum` = Date, `Napi halálozás-szám [fő/nap]` = DeathNumber)],file)
   )
   
   dataInputexcessmortGraph <- reactive({
     stratlist <- c("date", switch(input$excessmortStratify,
-                                  "Nem" = "SEX", "Életkor" = "AGE",
-                                  "Nem és életkor" = c("AGE", "SEX")))
+                                  "Nem" = "SEX", "Életkor" = "AGEf",
+                                  "Nem és életkor" = c("AGEf", "SEX")))
     ggplot(ExcessMort[,.(outcome = sum(outcome), population = sum(population), isoyear = isoyear,
                          isoweek = isoweek), stratlist],
            aes(x = isoweek, y = outcome/population*1e5, group = isoyear,
                color = isoyear==2020, alpha = isoyear==2020)) + geom_line() +
       scale_alpha_manual(values = c(0.3, 1)) + guides(color = FALSE, alpha = FALSE) +
       {if(input$excessmortStratify=="Nem") facet_wrap(vars(SEX))} +
-      {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
-      {if(input$excessmortStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")} +
+      {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGEf), scales = "free")} +
+      {if(input$excessmortStratify=="Nem és életkor") facet_grid(AGEf ~ SEX, scales = "free")} +
       labs(x = "Hét sorszáma", y = "Mortalitás [/100 ezer fő/hét]") +
       theme(plot.caption = element_text(face = "bold", hjust = 0)) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH")
@@ -561,27 +578,37 @@ server <- function(input, output, session) {
     content = function(file) ggsave169(file, dataInputexcessmortGraph())
   )
   
-  dataInputexcessmortModelGraph <- reactive({
+  output$excessmortTabDlCSV <- downloadHandler(
+    filename = paste0("Tobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) fwritecsv(ExcessMort[,.(`Év` = isoyear, `Hét sorszáma` = isoweek,
+                                                     `Nem` = SEX, `Korcsoport` = AGE, `Halálozások száma [fő]` = outcome,
+                                                     `Háttérpopuláció [fő]` = population,
+                                                     `Incidencia [fő/100e fő]` = incidence)], file)
+  )
+  
+  dataInputExcessmortModel <- reactive({
     stratlist <- c("date", switch(input$excessmortModelStratify,
-                                  "Nem" = "SEX", "Életkor" = "AGE",
-                                  "Nem és életkor" = c("AGE", "SEX")))
-    
-    fitStrat <- ExcessMort[,.(outcome = sum(outcome), population = sum(population)), stratlist][
+                                  "Nem" = "SEX", "Életkor" = "AGEf",
+                                  "Nem és életkor" = c("AGEf", "SEX")))
+    ExcessMort[,.(outcome = sum(outcome), population = sum(population)), stratlist][
       ,with(excessmort::excess_model(.SD, min(ExcessMort$date), max(ExcessMort$date),
                                      exclude = exclude_dates),
-            list(date = date, y = 100 * (observed - expected)/expected,
-                 increase = 100 * fitted, sd = 100 * sd, se = 100 * se)),
+            list(date = date, observed = observed, expected = expected,
+                 y = 100 * (observed - expected)/expected,
+                 increase = 100 * fitted, se = 100 * se)),
       c(stratlist[-1])]
-    
+  })
+  
+  dataInputexcessmortModelGraph <- reactive({
     z <- qnorm(1 - 0.05/2)
-    
-    ggplot(fitStrat, aes(x = date, y = y)) + geom_point(alpha = 0.5) + geom_line(aes(y = increase), col = "#3366FF") +
+    ggplot(dataInputExcessmortModel(), aes(x = date, y = y)) + geom_point(alpha = 0.5) +
+      geom_line(aes(y = increase), col = "#3366FF") +
       geom_ribbon(aes(ymin = increase - z * se, ymax = increase + z * se), alpha = 0.5) +
       geom_hline(yintercept = 0) + 
       labs(x = "Dátum", y = "Százalékos eltérés a várt értéktől") +
       {if(input$excessmortModelStratify=="Nem") facet_wrap(vars(SEX))} +
-      {if(input$excessmortModelStratify=="Életkor") facet_wrap(vars(AGE), scales = "free")} +
-      {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(AGE ~ SEX, scales = "free")} +
+      {if(input$excessmortModelStratify=="Életkor") facet_wrap(vars(AGEf), scales = "free")} +
+      {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(AGEf ~ SEX, scales = "free")} +
       theme(plot.caption = element_text(face = "bold", hjust = 0)) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH")
   })
@@ -598,7 +625,26 @@ server <- function(input, output, session) {
     content = function(file) ggsave169(file, dataInputexcessmortModelGraph())
   )
   
-  dataInputexcessandobsmortGraph <- reactive({
+  dataInputExcessmortModelNamed <- reactive({
+    temp <- copy(dataInputExcessmortModel())
+    setnames(temp, c(switch(input$excessmortModelStratify,
+                            "Nem" = c("SEX" = "Nem"), "Életkor" = c("AGEf" = "Korcsoport"),
+                            "Nem és életkor" = c("AGEf" = "Korcsoport", "SEX" = "Nem")),
+                     "date" = "Dátum", "observed" = "Halálozás [fő/hét]", "expected" = "Várt halálozás [fő/hét]",
+                     "y" = "Többlethalálozás [%]", "increase" = "Modellezett többlethalálozás [%]",
+                     "se" = "Standard hiba"))
+  })
+  
+  output$excessmortModelTab <- rhandsontable::renderRHandsontable({
+    rhandsontable::rhandsontable(dataInputExcessmortModelNamed(), readOnly = TRUE, height = 500)
+  })
+  
+  output$excessmortModelTabDlCSV <- downloadHandler(
+    filename = paste0("ModellezettTobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) fwritecsv(dataInputExcessmortModelNamed(), file)
+  )
+  
+  dataInputexcessandobsmort <- reactive({
     z <- qnorm(1 - (1-input$excessandobsmortConf/100)/2)
     res <- merge(
       RawData[,.(isoyear = lubridate::isoyear(Date), isoweek = lubridate::isoweek(Date), DeathNumber)][
@@ -616,11 +662,12 @@ server <- function(input, output, session) {
     res$date <- ISOweek::ISOweek2date(paste0(res$isoyear, "-W", res$isoweek, "-1"))
     res$lwr <- res$excess - z*res$se
     res$upr <- res$excess + z*res$se
-    res <- res[isoweek%in%names(table(lubridate::isoweek(RawData$Date)))[table(lubridate::isoweek(RawData$Date))==7]]
-    
+    res[isoweek%in%names(table(lubridate::isoweek(RawData$Date)))[table(lubridate::isoweek(RawData$Date))==7]]
+  })
+  
+  dataInputexcessandobsmortGraph <- reactive({
     cols <- c("excess" = "red", "observed" = "blue")
-    
-    ggplot(res, aes(x = date, y = excess, ymin = lwr, ymax = upr, color = "excess")) + geom_line() +
+    ggplot(dataInputexcessandobsmort(), aes(x = date, y = excess, ymin = lwr, ymax = upr, color = "excess")) + geom_line() +
       geom_ribbon(alpha = 0.1, linetype = 0, fill = "red") + geom_hline(yintercept = 0) +
       geom_line(aes(x = date, y = DeathNumber, color = "observed")) + guides(fill = FALSE) +
       scale_color_manual(name = "", values = cols, labels = c("Többlethalálozás", "Regisztrált koronavírus-halálozás"),
@@ -640,6 +687,27 @@ server <- function(input, output, session) {
   output$excessandobsmortGraphDlPNG <- downloadHandler(
     filename = paste0("TobblethalalozasEsRegisztraltHalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
     content = function(file) ggsave169(file, dataInputexcessandobsmortGraph())
+  )
+  
+  dataInputexcessandobsmortNamed <- reactive({
+    temp <- copy(dataInputexcessandobsmort())
+    temp$isoyear <- as.integer(temp$isoyear)
+    temp$isoweek <- as.integer(temp$isoweek)
+    temp$DeathNumber <- as.integer(temp$DeathNumber)
+    temp$ci <- ifelse(!is.na(temp$lwr), paste0(round(temp$lwr, 1), " - ", round(temp$upr, 1)), "")
+    temp <- temp[ , .(isoyear, isoweek, date, DeathNumber, excess, ci)]
+    setnames(temp, c("Év", "Hét sorszáma", "Dátum", "Regisztrált halálozások száma [fő/hét]",
+                     "Többlethalálozás [fő/hét]", paste0(input$excessandobsmortConf, "% CI")))
+    temp
+  })
+  
+  output$excessandobsmortTab <- rhandsontable::renderRHandsontable({
+    rhandsontable::rhandsontable(dataInputexcessandobsmortNamed(), readOnly = TRUE, height = 500)
+  })
+  
+  output$excessandobsmortTabDlCSV <- downloadHandler(
+    filename = paste0("TobblethalalozasEsRegisztraltHalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) fwritecsv(dataInputexcessandobsmortNamed(), file)
   )
   
   dataInputtestpositivityGraph <- reactive({
@@ -674,10 +742,10 @@ server <- function(input, output, session) {
   
   output$testpositivityTabDlCSV <- downloadHandler(
     filename = paste0("Tesztpozitivitas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
-    content = function(file) write.table(RawData[,.(Date, CaseNumber, TestNumber, fracpos*100)],
-                                         file, sep = ";", dec = ",", row.names = FALSE,
-                                         col.names = c("Dátum", "Napi esetszám [fő/nap]",
-                                                       "Napi tesztszám [db/nap]", "Tesztpozitivitás [%]"))
+    content = function(file) fwritecsv(RawData[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
+                                                   `Napi tesztszám [db/nap]` = TestNumber,
+                                                   `Tesztpozitivitás [%]` = fracpos*100)],
+                                       file)
   )
   
   dataInputProjemp <- reactive({
