@@ -1,4 +1,4 @@
-## Három fontos megjegyzés elöljáróban
+## Négy fontos megjegyzés elöljáróban
 
 1. Ezt a projektet hobbiként, kizárólag nyilvánosan elérhető információforrásokra támaszkodva végzem. Ebből adódóan az eredmények nem tekinthetőek semmilyen szerv hivatalos álláspontjának, valamint -- bár természetesen igyekeztem a lehető legjobb tudásom szerint eljárni -- a helyességére sincs hivatalos pecsét.
 

@@ -306,7 +306,7 @@ ui <- fluidPage(
                                    h4("Görbeillesztés paraméterei"),
                                    radioButtons("projempFform", "Függvényforma",
                                                 c("Exponenciális", "Hatvány", "Logisztikus")),
-                                   radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "Negatív binomiális"),
+                                   radioButtons("projempDistr", "Eloszlás", c( "Lognormális", "Poisson", "NB/QP"),
                                                 selected = "Poisson"),
                                    dateRangeInput("projempWindow", "Ablakozás",
                                                   max(RawData$Date)-14, max(RawData$Date),
@@ -459,7 +459,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.37"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.38"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -502,8 +502,9 @@ server <- function(input, output, session) {
   output$epicurveMortText <- renderText(grText(dataInputEpicurveMort()$m, input$epicurveMortFform, startDate = min(RawData$Date)))
   
   output$epicurveIncTab <- rhandsontable::renderRHandsontable({
-    rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber"), with = FALSE],
-                                 colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE, height = 500)
+    rhandsontable::hot_cols(rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber"), with = FALSE],
+                                 colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE, height = 500),
+                            colWidths = c(100, 170))
   })
   
   output$epicurveMortTab <- rhandsontable::renderRHandsontable({
@@ -627,16 +628,17 @@ server <- function(input, output, session) {
   
   dataInputExcessmortModelNamed <- reactive({
     temp <- copy(dataInputExcessmortModel())
+    temp$observed <- as.integer(temp$observed)
     setnames(temp, c(switch(input$excessmortModelStratify,
                             "Nem" = c("SEX" = "Nem"), "Életkor" = c("AGEf" = "Korcsoport"),
                             "Nem és életkor" = c("AGEf" = "Korcsoport", "SEX" = "Nem")),
-                     "date" = "Dátum", "observed" = "Halálozás [fő/hét]", "expected" = "Várt halálozás [fő/hét]",
+                     "date" = "Kezdődátum", "observed" = "Halálozás [fő/hét]", "expected" = "Várt halálozás [fő/hét]",
                      "y" = "Többlethalálozás [%]", "increase" = "Modellezett többlethalálozás [%]",
                      "se" = "Standard hiba"))
   })
   
   output$excessmortModelTab <- rhandsontable::renderRHandsontable({
-    rhandsontable::rhandsontable(dataInputExcessmortModelNamed(), readOnly = TRUE, height = 500)
+    rhandsontable::rhandsontable(dataInputExcessmortModelNamed(), readOnly = TRUE, height = 500, renderAllRows = TRUE)
   })
   
   output$excessmortModelTabDlCSV <- downloadHandler(
@@ -696,7 +698,7 @@ server <- function(input, output, session) {
     temp$DeathNumber <- as.integer(temp$DeathNumber)
     temp$ci <- ifelse(!is.na(temp$lwr), paste0(round(temp$lwr, 1), " - ", round(temp$upr, 1)), "")
     temp <- temp[ , .(isoyear, isoweek, date, DeathNumber, excess, ci)]
-    setnames(temp, c("Év", "Hét sorszáma", "Dátum", "Regisztrált halálozások száma [fő/hét]",
+    setnames(temp, c("Év", "Hét sorszáma", "Kezdődátum", "Regisztrált halálozások száma [fő/hét]",
                      "Többlethalálozás [fő/hét]", paste0(input$excessandobsmortConf, "% CI")))
     temp
   })

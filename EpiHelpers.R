@@ -30,19 +30,19 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
   startval <- NULL
   if(distr=="Lognormális") {
     fitfun <- if(fform!="Logisztikus") lm else gnm::gnm
-    data <- if(fform!="Logisztikus") rd[rd[[what]]!=0] else rd
+    rdata <- if(fform!="Logisztikus") rd[rd[[what]]!=0] else rd
     if(fform=="Logisztikus") family <- gaussian(link = "log")
   } else if(distr=="Poisson") {
     fitfun <- if(fform!="Logisztikus") glm else gnm::gnm
-    data <- rd
+    rdata <- rd
     #family <- if(fform!="Logisztikus") poisson(link = "log") else poisson(link = "identity")
     family <- poisson(link = "log")
   } else if(distr=="NB/QP") {
     fitfun <- if(fform!="Logisztikus") MASS::glm.nb else gnm::gnm
     if(fform=="Logisztikus") family <- quasipoisson(link = "log")
-    data <- rd
+    rdata <- rd
   }
-  parlist <- list(formula = fitformula, data = data[Date>=wind[1]&Date<=wind[2]&!is.na(data[[what]])])
+  parlist <- list(formula = fitformula, data = rdata[Date>=wind[1]&Date<=wind[2]&!is.na(rdata[[what]])])
   startval <- if(fform=="Logisztikus") {
     z <- parlist$data[[what]]
     rng <- range(z)
@@ -50,7 +50,7 @@ predData <- function(rd, what = "CaseNumber", fform = "Exponenciális", distr = 
     z <- (z - rng[1L] + 0.05 * dz)/(1.1 * dz)
     parlist$data[["z"]] <- log(z/(1 - z))
     aux <- coef(lm(as.formula(paste(what, "~ z")), parlist$data))
-    fit <- tryCatch(nls(as.formula(paste(what, "~ 1/(1 + exp((xmid - NumDate)/scal))")), data = parlist$data, 
+    fit <- tryCatch(nls(as.formula(paste(what, "~ 1/(1 + exp((xmid - NumDate)/scal))")), data = parlist$data,
                         start = list(xmid = aux[[1L]], scal = aux[[2L]]), algorithm = "plinear"),
                     error = function(e) NULL)
     if(!is.null(fit)) coef(fit)[c(".lin", "xmid", "scal")] else c(1000, 100, 2)
@@ -90,9 +90,9 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
     {if(loessfit) geom_smooth(method = "gam", formula = y ~ s(x, bs = "ad"), method.args = list(family = mgcv::nb()),
                               se = ci, level = conf/100)} +
     {if(delta) geom_vline(xintercept = deltadate)} +
-    coord_trans(y = if(logy) scales::pseudo_log_trans() else scales::identity_trans(),
-                ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
-                                   pred$pred$upr[is.na(pred$pred[[what]])])))) +
+    {if(logy) scale_y_continuous(trans = "pseudo_log")} +
+    coord_cartesian(ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
+                                       pred$pred$upr[is.na(pred$pred[[what]])])))) +
     scale_x_date(date_breaks = "month", date_labels = "%b") +
     theme(plot.caption = element_text(face = "bold", hjust = 0)) +
     labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
