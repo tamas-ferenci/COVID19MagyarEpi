@@ -182,7 +182,8 @@ ui <- fluidPage(
              fluidPage(
                tabsetPanel(
                  tabPanel("Mortalitás alakulása",
-                          plotOutput("excessmortGraph"),
+                          conditionalPanel("input.excessmortType=='Grafikon'", plotOutput("excessmortGraph")),
+                          conditionalPanel("input.excessmortType=='Táblázat'", rhandsontable::rHandsontableOutput("excessmortTab")),
                           hr(),
                           fluidRow(
                             column(3,
@@ -459,7 +460,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.38"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.39"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -569,6 +570,14 @@ server <- function(input, output, session) {
   
   output$excessmortGraph <- renderPlot(dataInputexcessmortGraph())
   
+  output$excessmortTab <- rhandsontable::renderRHandsontable({
+    rhandsontable::rhandsontable(ExcessMort[,.(`Év` = isoyear, `Hét sorszáma` = isoweek,
+                                               `Nem` = SEX, `Korcsoport` = AGE, `Halálozások száma [fő]` = outcome,
+                                               `Háttérpopuláció [fő]` = population,
+                                               `Incidencia [fő/100e fő]` = incidence)],
+                                 readOnly = TRUE, height = 500, renderAllRows = TRUE)
+  })
+  
   output$excessmortGraphDlPDF <- downloadHandler(
     filename = paste0("Tobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
     content = function(file) ggsave169(file, dataInputexcessmortGraph())
@@ -661,7 +670,7 @@ server <- function(input, output, session) {
                         x <- matrix(x[i,], nr = 1)
                         sqrt(mu %*% x %*% betacov %*% t(x) %*% t(mu))
                       }))), by = c("isoyear", "isoweek"), all.x = TRUE)
-    res$date <- ISOweek::ISOweek2date(paste0(res$isoyear, "-W", res$isoweek, "-1"))
+    res$date <- ISOweek::ISOweek2date(paste0(res$isoyear, "-W", sprintf("%02d", res$isoweek), "-1"))
     res$lwr <- res$excess - z*res$se
     res$upr <- res$excess + z*res$se
     res[isoweek%in%names(table(lubridate::isoweek(RawData$Date)))[table(lubridate::isoweek(RawData$Date))==7]]

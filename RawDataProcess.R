@@ -92,15 +92,16 @@ RawData$Male_85 <- RawData$Male_85 + RawData$Male_90
 RawData$Female_85 <- RawData$Female_85 + RawData$Female_90
 RawData <- RawData[,!names(RawData)%in%c("Male_90", "Female_90"), with = FALSE]
 RawData <- melt(RawData, id.vars = "date", variable.factor = FALSE, value.name = "outcome")
+RawData$outcome <- as.integer(RawData$outcome)
 RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
-RawData$AGE <- as.numeric(sapply(strsplit(RawData$variable, "_"), `[`, 2))
+RawData$AGE <- as.integer(sapply(strsplit(RawData$variable, "_"), `[`, 2))
 PopPyramid <- readRDS("PopPyramid2020.rds")
 PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION,
                                        unique(RawData$date)),
                                 list(date = x, population = y)), .(AGE, SEX)]
 RawData <- merge(RawData, PopPyramid)
-RawData$isoweek <- lubridate::isoweek(RawData$date)
-RawData$isoyear <- lubridate::isoyear(RawData$date)
+RawData$isoweek <- as.integer(lubridate::isoweek(RawData$date))
+RawData$isoyear <- as.integer(lubridate::isoyear(RawData$date))
 RawData$incidence <- RawData$outcome/RawData$population*1e5
 RawData$SEXf <- as.factor(RawData$SEX)
 RawData$isoyearf <- as.factor(RawData$isoyear)
