@@ -10,9 +10,9 @@ SIsdDefault <- 2.9
 source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
 Sys.setlocale(locale = "hu_HU.utf8")
-options(mc.cores = parallel::detectCores())
-modCorrected <- readRDS("CFR_corrected_stan.rds")
-modRealtime <- readRDS("CFR_realtime_stan.rds")
+# options(mc.cores = parallel::detectCores())
+# modCorrected <- readRDS("CFR_corrected_stan.rds")
+# modRealtime <- readRDS("CFR_realtime_stan.rds")
 cfrsensgrid <- readRDS("cfrsensgrid.rds")
 ExcessMort <- readRDS("ExcessMort.rds")
 exclude_dates <- seq(as.Date("2020-03-01"), max(ExcessMort$date), by = "day")
@@ -459,7 +459,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.41"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.42"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 

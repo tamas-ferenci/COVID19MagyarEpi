@@ -134,8 +134,12 @@ reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
                                                                                t_end = wind[2])))$R[c("Median(R)",
                                                                                                       "Quantile.0.025(R)",
                                                                                                       "Quantile.0.975(R)")]),
-               with(R0::smooth.Rt(R0::est.R0.TD(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
-                                  wind[2]-wind[1]+1), c(R, unlist(conf.int))))
+               unlist(EpiEstim::wallinga_teunis(CaseNumber, method = "parametric_si",
+                                           config = list(method = "parametric_si", mean_si = SImu, std_si = SIsd,
+                                                         n_sim = 10, t_start = max(c(2, wind[1])),t_end = wind[2]))$R[
+                                                           c("Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")]))
+               # with(R0::smooth.Rt(R0::est.R0.TD(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
+               #                    wind[2]-wind[1]+1), c(R, unlist(conf.int))))
   # unlist(EpiEstim::wallinga_teunis(CaseNumber, "parametric_si",
   #                                  list(method = "parametric_si",mean_si = SImu, std_si = SIsd,
   #                                       t_start = max(c(2, wind[1])), t_end = wind[2], n_sim=100))$R[
@@ -151,7 +155,7 @@ reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
 reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
   discrGT <- R0::generation.time("gamma", c(SImu, SIsd))
   res <- rbind(data.table(EpiEstim::estimate_R(CaseNumber, "parametric_si",
-                                               config = EpiEstim::make_config(method = "parametric_si",mean_si = SImu,
+                                               config = EpiEstim::make_config(method = "parametric_si", mean_si = SImu,
                                                                               std_si = SIsd,
                                                                               t_start = 2:(length(CaseNumber)-windowlen+1),
                                                                               t_end = (windowlen+1):(length(CaseNumber))))$R[
@@ -163,8 +167,14 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
                                                                     end = as.integer(beg+windowlen-1L)),
                                                       c(R, conf.int)))), NumDate = (windowlen):(length(CaseNumber)),
                           `Módszer` = "Wallinga-Lipsitch Exp/Poi"),
-               with(R0::est.R0.TD(CaseNumber, discrGT, begin = 1L, end = length(CaseNumber)-1L),
-                    cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Wallinga-Teunis")),
+               data.table(EpiEstim::wallinga_teunis(CaseNumber, method = "parametric_si",
+                                                    config = list(method = "parametric_si",mean_si = SImu, std_si = SIsd, n_sim = 10,
+                                                                  t_start = 2:(length(CaseNumber)-windowlen+1),
+                                                                  t_end = (windowlen+1):(length(CaseNumber))))$R[
+                                                                    c("Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")],
+                          NumDate = (windowlen+1):(length(CaseNumber)), `Módszer` = "Wallinga-Teunis"),
+               # with(R0::est.R0.TD(CaseNumber, discrGT, begin = 1L, end = length(CaseNumber)-1L),
+               #      cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Wallinga-Teunis")),
                # with(R0::est.R0.SB(CaseNumber, discrGT, begin = 3L, end = length(CaseNumber)),
                #      cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Bettencourt-Ribeiro")),
                use.names = FALSE)

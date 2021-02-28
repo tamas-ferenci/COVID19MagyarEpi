@@ -3,6 +3,7 @@ title: "A COVID-19 magyarországi járványügyi helyzete"
 date: '`r format(Sys.time(), "%Y\\. %m\\. %d\\. %H:%M")`'
 author: "Ferenci Tamás, https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/"
 output: pdf_document
+classoption: landscape
 params:
   reportConf: 95
   reportSImu: 3.96
