@@ -96,6 +96,7 @@ RawData$outcome <- as.integer(RawData$outcome)
 RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
 RawData$AGE <- as.integer(sapply(strsplit(RawData$variable, "_"), `[`, 2))
 PopPyramid <- readRDS("PopPyramid2020.rds")
+PopPyramid <- rbind(PopPyramid, cbind(YEAR = 2022, PopPyramid[YEAR==2021, .(SEX, AGE, POPULATION)]))
 PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION,
                                        unique(RawData$date)),
                                 list(date = x, population = y)), .(AGE, SEX)]

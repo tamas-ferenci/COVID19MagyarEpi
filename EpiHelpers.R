@@ -135,17 +135,16 @@ reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
                                                                                                       "Quantile.0.025(R)",
                                                                                                       "Quantile.0.975(R)")]),
                with(R0::smooth.Rt(R0::est.R0.TD(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
-                                  wind[2]-wind[1]+1), c(R, unlist(conf.int))),
+                                  wind[2]-wind[1]+1), c(R, unlist(conf.int))))
                # unlist(EpiEstim::wallinga_teunis(CaseNumber, "parametric_si",
                #                                  list(method = "parametric_si",mean_si = SImu, std_si = SIsd,
                #                                       t_start = max(c(2, wind[1])), t_end = wind[2], n_sim=100))$R[
                #                                         c("Mean(R)","Quantile.0.025(R)", "Quantile.0.975(R)")]),
-               with(R0::smooth.Rt(R0::est.R0.SB(CaseNumber, discrGT, begin = max(c(3L, wind[1])), end = wind[2]),
-                                  wind[2]-max(c(3, wind[1]))+1), c(R, unlist(conf.int))))
+               # with(R0::smooth.Rt(R0::est.R0.SB(CaseNumber, discrGT, begin = max(c(3L, wind[1])), end = wind[2]),
+               #                    wind[2]-max(c(3, wind[1]))+1), c(R, unlist(conf.int))))
   res <- data.table(res)
   colnames(res) <- c("R", "lwr", "upr")
-  res$`Módszer` <- c("White", "Wallinga-Lipsitch (diszkretizált)", "Wallinga-Lipsitch (egzakt)", "Cori", "Wallinga-Teunis",
-                     "Bettencourt-Ribeiro")
+  res$`Módszer` <- c("White", "Wallinga-Lipsitch (diszkretizált)", "Wallinga-Lipsitch (egzakt)", "Cori", "Wallinga-Teunis")
   res
 }
 
@@ -166,8 +165,8 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
                           `Módszer` = "Wallinga-Lipsitch Exp/Poi"),
                with(R0::est.R0.TD(CaseNumber, discrGT, begin = 1L, end = length(CaseNumber)-1L),
                     cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Wallinga-Teunis")),
-               with(R0::est.R0.SB(CaseNumber, discrGT, begin = 3L, end = length(CaseNumber)),
-                    cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Bettencourt-Ribeiro")),
+               # with(R0::est.R0.SB(CaseNumber, discrGT, begin = 3L, end = length(CaseNumber)),
+               #      cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Bettencourt-Ribeiro")),
                use.names = FALSE)
   colnames(res)[1:3] <- c("R", "lwr", "upr")
   res

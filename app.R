@@ -370,8 +370,7 @@ ui <- fluidPage(
                                    checkboxInput("reprRtCi", "Konfidenciaintervallum megjelenítése")),
                             column(3,
                                    checkboxGroupInput("reprRtMethods", "Módszerek",
-                                                      c("Cori", "Wallinga-Lipsitch Exp/Poi", "Wallinga-Teunis",
-                                                        "Bettencourt-Ribeiro"),
+                                                      c("Cori", "Wallinga-Lipsitch Exp/Poi", "Wallinga-Teunis"),
                                                       c("Cori", "Wallinga-Teunis"))),
                             column(3,
                                    sliderInput("reprRtWindowlen", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1),
@@ -460,7 +459,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.39"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.40"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -504,7 +503,7 @@ server <- function(input, output, session) {
   
   output$epicurveIncTab <- rhandsontable::renderRHandsontable({
     rhandsontable::hot_cols(rhandsontable::rhandsontable(RawData[,c("Date", "CaseNumber"), with = FALSE],
-                                 colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE, height = 500),
+                                                         colHeaders = c("Dátum", "Napi esetszám [fő/nap]"), readOnly = TRUE, height = 500),
                             colWidths = c(100, 170))
   })
   
@@ -677,13 +676,12 @@ server <- function(input, output, session) {
   })
   
   dataInputexcessandobsmortGraph <- reactive({
-    cols <- c("excess" = "red", "observed" = "blue")
-    ggplot(dataInputexcessandobsmort(), aes(x = date, y = excess, ymin = lwr, ymax = upr, color = "excess")) + geom_line() +
-      geom_ribbon(alpha = 0.1, linetype = 0, fill = "red") + geom_hline(yintercept = 0) +
-      geom_line(aes(x = date, y = DeathNumber, color = "observed")) + guides(fill = FALSE) +
-      scale_color_manual(name = "", values = cols, labels = c("Többlethalálozás", "Regisztrált koronavírus-halálozás"),
-                         guide = guide_legend(override.aes = aes(fill = NA))) +
-      labs(x = "Dátum", y = "Heti halálozás [fő/hét]") + scale_x_date(date_breaks = "month", date_labels = "%b") +
+    res <- melt(dataInputexcessandobsmort(), id.vars = c("isoyear", "isoweek", "date"), measure.vars = list(value = c(5, 3), lwr = 7, upr = 8))
+    res$variable <- ifelse(res$variable==1, "Többlethalálozás", "Regisztrált koronavírus-halálozás")
+    res$variable <- relevel(as.factor(res$variable), ref = "Többlethalálozás")
+    ggplot(res, aes(x = date, y = value, ymin = lwr, ymax = upr, group = variable, fill = variable)) + geom_line(aes(color = variable)) +
+      geom_ribbon(alpha = 0.1, show.legend = FALSE) + geom_hline(yintercept = 0) + #guides(fill = FALSE) +
+      labs(x = "Dátum", y = "Heti halálozás [fő/hét]", color = "") + scale_x_date(date_breaks = "month", date_labels = "%b") +
       theme(legend.position = "bottom", plot.caption = element_text(face = "bold", hjust = 0)) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH és JHU CSSE")
   })
@@ -808,9 +806,8 @@ server <- function(input, output, session) {
   dataInputReprRt <- reactive(reprRtData(RawData$CaseNumber, input$reprRtSImu, input$reprRtSIsd, input$reprRtWindowlen))
   
   output$reprRtGraph <- renderPlot({
-    pal <- scales::hue_pal()(4)
-    scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3],
-                 "Bettencourt-Ribeiro" = pal[4])
+    pal <- scales::hue_pal()(3)
+    scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3])
     res <- merge(dataInputReprRt(), RawData)[`Módszer`%in%input$reprRtMethods]
     ggplot(res, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer`, fill = `Módszer`)) + geom_line() +
       geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +

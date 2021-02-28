@@ -34,14 +34,14 @@ epicurvePlot(predData(RawData))
 Grafikus előrejelzés a következő hétre a megelőző két hét adataira illesztett exponenciális görbe alapján:
 
 ```{r}
-epicurvePlot(predData(RawData, wind = c(RawData$NumDate[nrow(RawData)-14], tail(RawData$NumDate,1)), projper = 7,
+epicurvePlot(predData(RawData, wind = c(max(RawData$Date)-14, max(RawData$Date)), projper = 7,
                       level = params$reportConf), funfit = TRUE, conf = params$reportConf)
 ```
 
 Az utolsó hét adatai és számszerű előrejelzések:
 
 ```{r}
-res <- round_dt(predData(RawData, wind = c(RawData$NumDate[nrow(RawData)-14], tail(RawData$NumDate,1)), projper = 7,
+res <- round_dt(predData(RawData, wind = c(max(RawData$Date)-14, max(RawData$Date)), projper = 7,
                          level = params$reportConf)$pred)
 res$Pred <-  paste0(res$fit, " (", res$lwr, "-", res$upr, ")")
 res <- res[!duplicated(Date)][Date>=RawData$Date[nrow(RawData)-7]]
