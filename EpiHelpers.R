@@ -136,12 +136,12 @@ reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
                                                                                                       "Quantile.0.975(R)")]),
                with(R0::smooth.Rt(R0::est.R0.TD(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
                                   wind[2]-wind[1]+1), c(R, unlist(conf.int))))
-               # unlist(EpiEstim::wallinga_teunis(CaseNumber, "parametric_si",
-               #                                  list(method = "parametric_si",mean_si = SImu, std_si = SIsd,
-               #                                       t_start = max(c(2, wind[1])), t_end = wind[2], n_sim=100))$R[
-               #                                         c("Mean(R)","Quantile.0.025(R)", "Quantile.0.975(R)")]),
-               # with(R0::smooth.Rt(R0::est.R0.SB(CaseNumber, discrGT, begin = max(c(3L, wind[1])), end = wind[2]),
-               #                    wind[2]-max(c(3, wind[1]))+1), c(R, unlist(conf.int))))
+  # unlist(EpiEstim::wallinga_teunis(CaseNumber, "parametric_si",
+  #                                  list(method = "parametric_si",mean_si = SImu, std_si = SIsd,
+  #                                       t_start = max(c(2, wind[1])), t_end = wind[2], n_sim=100))$R[
+  #                                         c("Mean(R)","Quantile.0.025(R)", "Quantile.0.975(R)")]),
+  # with(R0::smooth.Rt(R0::est.R0.SB(CaseNumber, discrGT, begin = max(c(3L, wind[1])), end = wind[2]),
+  #                    wind[2]-max(c(3, wind[1]))+1), c(R, unlist(conf.int))))
   res <- data.table(res)
   colnames(res) <- c("R", "lwr", "upr")
   res$`Módszer` <- c("White", "Wallinga-Lipsitch (diszkretizált)", "Wallinga-Lipsitch (egzakt)", "Cori", "Wallinga-Teunis")
@@ -172,31 +172,31 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
   res
 }
 
-cfrMCMC <- function(rd, modCorrected, modRealtime, DDTmu, DDTsd) {
-  discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(DDTmu)-log(DDTsd^2/DDTmu^2+1)/2,
-                                    sdlog = sqrt(log(DDTsd^2/DDTmu^2+1)))
-  dj <- discrdist$d(0:(nrow(rd)-1))
-  u <- round(sapply(1:nrow(rd), function(t) sum(sapply(1:t, function(i)
-    sum(sapply(0:(i-1), function(j) rd$CaseNumber[i-j]*dj[j+1]))))))
-  u2 <- round(sapply(1:nrow(rd), function(t) sum(sapply(0:(t-1), function(j) rd$CaseNumber[t-j]*dj[j+1]))))
-  fitCorrected <- rstan::sampling(modCorrected, data = list(N = nrow(rd), CumDeathNumber = rd$CumDeathNumber, u = u),
-                                  control = list(max_treedepth = 14))
-  fitRealtime <- rstan::sampling(modRealtime, data = list(N = nrow(rd), DeathNumber = rd$DeathNumber, u2 = u2),
-                                 control = list(max_treedepth = 14))
-  list(fitCorrected = fitCorrected, fitRealtime = fitRealtime)
-}
-
 binom.test2 <- function(x, n, conf.level) if(n==0) list(estimate = NA, conf.int = c(NA, NA)) else
   binom.test(x, n, conf.level = conf.level)
 
-cfrData <- function(rd, DDTmu, DDTsd, MCMCres, conf = 95) {
+cfrData <- function(rd, DDTmu, DDTsd, conf = 95, last = FALSE) {
   conf <- conf/100
+  discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(DDTmu)-log(DDTsd^2/DDTmu^2+1)/2,
+                                    sdlog = sqrt(log(DDTsd^2/DDTmu^2+1)))
+  dj <- discrdist$d(0:(nrow(rd)-1))
+  rd$u <- round(sapply(1:nrow(rd), function(t) sum(convolve(rd$CaseNumber[1:t], rev(dj[1:t]), type = "open")[1:t])))
+  rd$u2 <- round(sapply(1:nrow(rd), function(t) sum(sapply(0:(t-1), function(j) rd$CaseNumber[t-j]*dj[j+1]))))
+  if (last) return(plogis(bbmle::coef(bbmle::mle2(CumDeathNumber ~ dbinom(size = u, prob = plogis(p)),
+                                                  data = tail(rd, 1), start = list(p = -2)))))
+  CfrCorrected <- lapply(10:nrow(rd), function(end)
+    bbmle::mle2(CumDeathNumber ~ dbinom(size = u, prob = plogis(p)), data = rd[end], start = list(p = -2)))
+  CfrRealtime <- lapply(10:nrow(rd), function(end)
+    bbmle::mle2(DeathNumber ~ dbinom(size = u2, prob = plogis(p)), data = rd[end], start = list(p = -2)))
   rbind(data.table(t(mapply(function(...) with(binom.test2(...),
                                                c(value = as.numeric(estimate), lwr = conf.int[1], upr = conf.int[2])),
                             rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf))),
                    `Típus` = "Nyers", Date = rd$Date),
-        cbind(setNames(data.table(rstan::summary(MCMCres$fitCorrected, "p", c(0.5, (1-conf)/2, 1-(1-conf)/2))$summary[,4:6]),
-                       c("value", "lwr", "upr")), `Típus` = "Korrigált", Date = rd$Date),
-        cbind(setNames(data.table(rstan::summary(MCMCres$fitRealtime, "p", c(0.5, (1-conf)/2, 1-(1-conf)/2))$summary[,4:6]),
-                       c("value", "lwr", "upr")), `Típus` = "Valós idejű", Date = rd$Date))
+        data.table(sapply(CfrCorrected, function(x) plogis(bbmle::coef(x))),
+                   t(sapply(CfrCorrected, function(x) plogis(bbmle::confint(x)))))[,.(value = V1, lwr = `2.5 %`, upr = `97.5 %`,
+                                                                                      `Típus` = "Korrigált", Date = rd$Date[-(1:9)])],
+        data.table(sapply(CfrRealtime, function(x) plogis(bbmle::coef(x))),
+                   t(sapply(CfrRealtime, function(x)
+                     plogis(tryCatch(bbmle::confint(x), error = function(e) c(NA, NA))))))[,.(value = V1, lwr = `2.5 %`, upr = `97.5 %`,
+                                                                                              `Típus` = "Valós idejű", Date = rd$Date[-(1:9)])])
 }
