@@ -13,19 +13,49 @@ params:
 ```{r, include=FALSE}
 library(data.table)
 library(ggplot2)
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, dev = "cairo_pdf")
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, dev = "cairo_pdf", fig.width = 20)
 options(digits = 3, knitr.kable.NA = "")
 RawData <- readRDS("RawData.rds")
 source("EpiHelpers.R", encoding = "UTF-8")
+resReprRt <- merge(reprRtData(RawData$CaseNumber, params$reportSImu, params$reportSIsd),
+                   RawData)[`Módszer`%in%c("Cori", "Wallinga-Teunis")]
 options(scipen=999)
 ```
 
 # Járványgörbe
 
-A járvány jelenlegi görbéje a rá illesztett simítógörbével:
+Az esetek számának alakulása rá illesztett simítógörbével:
 
 ```{r}
 epicurvePlot(predData(RawData))
+```
+
+A halottak számának alakulása rá illesztett simítógörbével:
+
+```{r}
+epicurvePlot(predData(RawData, "DeathNumber"), "DeathNumber")
+```
+
+# A reprodukciós szám valós idejű becslése
+
+A reprodukciós szám valós idejű becslése Cori et al és Wallinga-Teunis módszere szerint:
+
+```{r, message = FALSE}
+pal <- scales::hue_pal()(3)
+scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3])
+ggplot(resReprRt, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer`, fill = `Módszer`)) + geom_line() +
+  geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +
+  labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
+  scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) + geom_ribbon(alpha = 0.2) +
+  coord_cartesian(ylim = c(NA, max(resReprRt$R)))
+```
+
+Az utolsó hét adatai Cori et al módszere szerint számszerűen:
+
+```{r}
+res <- round_dt(resReprRt[`Módszer`=="Cori", c("Módszer", "Date", "R", "lwr", "upr")][order(Date, decreasing = TRUE)][1:7])
+res$R <- paste0(res$R, " (", res$lwr, "-", res$upr, ")")
+knitr::kable(res[, c("Date", "R")], col.names = c("Dátum", "R"))
 ```
 
 # Előrejelzések
@@ -54,17 +84,3 @@ knitr::kable(res[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
 
 A következő számításokhoz a modell feltételezi, hogy a serial interval (tehát az egy beteg tüneteinek jelentkezésétől az általa megbetegített emberek -- másodlagos fertőzések -- tüneteinek jelentkezéséig eltelő idő) gamma eloszlású `r params$reportSImu` várható értékkel és `r params$reportSIsd` szórással.
 
-# Reprodukciós szám valós idejű becslései
-
-```{r, message = FALSE}
-pal <- scales::hue_pal()(4)
-scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3],
-             "Bettencourt-Ribeiro" = pal[4])
-res <- merge(reprRtData(RawData$CaseNumber, params$reportSImu, params$reportSIsd),
-             RawData)[`Módszer`%in%c("Cori", "Wallinga-Teunis")]
-ggplot(res, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer`, fill = `Módszer`)) + geom_line() +
-  geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +
-  labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
-  scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) + geom_ribbon(alpha = 0.2) +
-  coord_cartesian(ylim = c(NA, max(res$R)))
-```

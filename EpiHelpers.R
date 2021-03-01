@@ -169,10 +169,10 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
                           `Módszer` = "Wallinga-Lipsitch Exp/Poi"),
                data.table(EpiEstim::wallinga_teunis(CaseNumber, method = "parametric_si",
                                                     config = list(method = "parametric_si",mean_si = SImu, std_si = SIsd, n_sim = 10,
-                                                                  t_start = 2:(length(CaseNumber)-windowlen+1),
-                                                                  t_end = (windowlen+1):(length(CaseNumber))))$R[
+                                                                  t_start = 2:(length(CaseNumber)-windowlen+1-10),
+                                                                  t_end = (windowlen+1):(length(CaseNumber)-10)))$R[
                                                                     c("Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")],
-                          NumDate = (windowlen+1):(length(CaseNumber)), `Módszer` = "Wallinga-Teunis"),
+                          NumDate = (windowlen+1):(length(CaseNumber)-10), `Módszer` = "Wallinga-Teunis"),
                # with(R0::est.R0.TD(CaseNumber, discrGT, begin = 1L, end = length(CaseNumber)-1L),
                #      cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Wallinga-Teunis")),
                # with(R0::est.R0.SB(CaseNumber, discrGT, begin = 3L, end = length(CaseNumber)),
