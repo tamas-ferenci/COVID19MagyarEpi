@@ -459,7 +459,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.43"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.44"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -557,13 +557,13 @@ server <- function(input, output, session) {
     ggplot(ExcessMort[,.(outcome = sum(outcome), population = sum(population), isoyear = isoyear,
                          isoweek = isoweek), stratlist],
            aes(x = isoweek, y = outcome/population*1e5, group = isoyear,
-               color = isoyear==2020, alpha = isoyear==2020)) + geom_line() +
-      scale_alpha_manual(values = c(0.3, 1)) + guides(color = FALSE, alpha = FALSE) +
+               color = cut(isoyear, c(0, 2019:2021), labels = c("-2019", "2020", "2021")), alpha = isoyear>=2020)) + geom_line() +
+      scale_alpha_manual(values = c(0.3, 1)) + guides(alpha = FALSE) +
       {if(input$excessmortStratify=="Nem") facet_wrap(vars(SEX))} +
       {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGEf), scales = "free")} +
       {if(input$excessmortStratify=="Nem és életkor") facet_grid(AGEf ~ SEX, scales = "free")} +
       labs(x = "Hét sorszáma", y = "Mortalitás [/100 ezer fő/hét]") +
-      theme(plot.caption = element_text(face = "bold", hjust = 0)) +
+      theme(plot.caption = element_text(face = "bold", hjust = 0), legend.position = "bottom", legend.title=element_blank()) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH")
   })
   
@@ -993,4 +993,4 @@ server <- function(input, output, session) {
   )
 }
 
-shinyApp( ui = ui, server = server )
+shinyApp(ui = ui, server = server)
