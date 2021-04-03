@@ -79,8 +79,7 @@ saveRDS(cfrsensgrid, "/srv/shiny-server/COVID19MagyarEpi/cfrsensgrid.rds")
 
 tf <- tempfile(fileext = ".xls")
 download.file("https://www.ksh.hu/docs/hun/xstadat/xstadat_evkozi/xls/1_2h.xls", tf, mode = "wb")
-RawData <- as.data.table(XLConnect::readWorksheetFromFile(tf, 1, startRow = 4,
-                                                          header = TRUE)[,c(3, 5:17, 19:31)])
+RawData <- as.data.table(rio::import(tf, skip = 3)[,c(3, 5:17, 19:31)])
 names(RawData) <- c("date", paste0("Male_", c(0, seq(35, 90, 5))),
                     paste0("Female_", c(0, seq(35, 90, 5))))
 RawData$date <- as.Date(RawData$date, tz = "CET")
@@ -95,7 +94,7 @@ RawData <- melt(RawData, id.vars = "date", variable.factor = FALSE, value.name =
 RawData$outcome <- as.integer(RawData$outcome)
 RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
 RawData$AGE <- as.integer(sapply(strsplit(RawData$variable, "_"), `[`, 2))
-PopPyramid <- readRDS("PopPyramid2020.rds")
+PopPyramid <- readRDS("/srv/shiny-server/COVID19MagyarEpi/PopPyramid2020.rds")
 PopPyramid <- rbind(PopPyramid, cbind(YEAR = 2022, PopPyramid[YEAR==2021, .(SEX, AGE, POPULATION)]))
 PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION,
                                        unique(RawData$date)),

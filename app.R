@@ -367,8 +367,15 @@ ui <- fluidPage(
                           fluidRow(
                             column(3,
                                    radioButtons("reprRtType", "Megjelenítés", c("Grafikon", "Táblázat")),
-                                   checkboxInput("reprRtCi", "Konfidenciaintervallum megjelenítése")),
+                                   conditionalPanel("input.reprRtType=='Grafikon'",
+                                                    downloadButton("reprRtGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("reprRtGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.reprRtType=='Táblázat'",
+                                                    downloadButton("reprRtTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )),
                             column(3,
+                                   checkboxInput("reprRtCi", "Konfidenciaintervallum megjelenítése"),
                                    checkboxGroupInput("reprRtMethods", "Módszerek",
                                                       c("Cori", "Wallinga-Lipsitch Exp/Poi", "Wallinga-Teunis"),
                                                       c("Cori", "Wallinga-Teunis"))),
@@ -459,7 +466,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.44"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.45"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -557,7 +564,7 @@ server <- function(input, output, session) {
     ggplot(ExcessMort[,.(outcome = sum(outcome), population = sum(population), isoyear = isoyear,
                          isoweek = isoweek), stratlist],
            aes(x = isoweek, y = outcome/population*1e5, group = isoyear,
-               color = cut(isoyear, c(0, 2019:2021), labels = c("-2019", "2020", "2021")), alpha = isoyear>=2020)) + geom_line() +
+               color = cut(isoyear, c(0, 2019:2021), labels = c("2015-2019", "2020", "2021")), alpha = isoyear>=2020)) + geom_line() +
       scale_alpha_manual(values = c(0.3, 1)) + guides(alpha = FALSE) +
       {if(input$excessmortStratify=="Nem") facet_wrap(vars(SEX))} +
       {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGEf), scales = "free")} +
@@ -805,7 +812,7 @@ server <- function(input, output, session) {
   
   dataInputReprRt <- reactive(reprRtData(RawData$CaseNumber, input$reprRtSImu, input$reprRtSIsd, input$reprRtWindowlen))
   
-  output$reprRtGraph <- renderPlot({
+  dataInputReprRtGraph <- reactive({
     pal <- scales::hue_pal()(3)
     scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3])
     res <- merge(dataInputReprRt(), RawData)[`Módszer`%in%input$reprRtMethods]
@@ -815,18 +822,40 @@ server <- function(input, output, session) {
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
       {if(input$reprRtCi) geom_ribbon(alpha = 0.2)} +
       {if(!input$reprRtCi) coord_cartesian(ylim = c(NA, max(res$R)))} +
-      scale_x_date(date_breaks = "month", date_labels = "%b")
+      scale_x_date(date_breaks = "month", date_labels = "%b") +
+      theme(plot.caption = element_text(face = "bold", hjust = 0)) +
+      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
   })
   
-  output$reprRtTab <- rhandsontable::renderRHandsontable({
+  output$reprRtGraph <- renderPlot(dataInputReprRtGraph())
+  
+  dataInputReprRtTab <- reactive({
     res <- merge(dataInputReprRt(), RawData)[`Módszer`%in%input$reprRtMethods]
     res <- res[, c("Módszer", "Date", "R", "lwr", "upr")]
     res <- res[order(`Módszer`, Date)]
     res <- round_dt(res)
     if(input$reprRtCi) res$R <- paste0(res$R, " (", res$lwr, "-", res$upr, ")")
-    rhandsontable::rhandsontable(res[, c("Módszer", "Date", "R")], colHeaders = c("Módszer", "Dátum", "R"),
-                                 readOnly = TRUE, height = 500)
+    setnames(res, c("Módszer", "Dátum", "R", "lwr", "upr"))
+    res
   })
+  
+  output$reprRtTab <- rhandsontable::renderRHandsontable(rhandsontable::rhandsontable(dataInputReprRtTab()[, c("Módszer", "Dátum", "R")],
+                                                                                      readOnly = TRUE, height = 500))
+  
+  output$reprRtGraphDlPDF <- downloadHandler(
+    filename = paste0("ReprodukciosSzam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file, dataInputReprRtGraph())
+  )
+  
+  output$reprRtGraphDlPNG <- downloadHandler(
+    filename = paste0("ReprodukciosSzam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file, dataInputReprRtGraph())
+  )
+  
+  output$reprRtTabDlCSV <- downloadHandler(
+    filename = paste0("ReprodukciosSzam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) fwritecsv(dataInputReprRtTab()[, c("Módszer", "Dátum", "R")], file)
+  )
   
   values <- reactiveValues(Rs = data.table(Date = as.Date(c("2020-03-04", "2020-03-13")), R = c(2.7, 1.2)))
   
@@ -947,7 +976,7 @@ server <- function(input, output, session) {
                                                                          "Valós idejű halálozási arány [%]"),
                                  readOnly = TRUE)
   })
-
+  
   dataInputCfrUnderdet <- reactive({
     cfrData(RawData, input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd, 95, TRUE)
   })
