@@ -466,7 +466,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.45"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.46"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -780,9 +780,9 @@ server <- function(input, output, session) {
   })
   
   output$projempTab <- rhandsontable::renderRHandsontable({
-    pred <- round_dt(dataInputProjemp()$pred)
+    pred <- dataInputProjemp()$pred
     pred2 <- pred[, c("Date", input$projempOutcome), with = FALSE]
-    pred2$Pred <- if(input$projempCi) paste0(pred$fit, " (", pred$lwr, "-", pred$upr, ")") else pred$fit
+    pred2$Pred <- if(input$projempCi) paste0(round(pred$fit, 2), " (", round(pred$lwr, 2), "-", round(pred$upr, 2), ")") else pred$fit
     pred2 <- pred2[!duplicated(Date)]
     rhandsontable::rhandsontable(
       pred2, colHeaders = c("Dátum",
@@ -805,8 +805,7 @@ server <- function(input, output, session) {
   
   output$reprTab <- rhandsontable::renderRHandsontable({
     res <- dataInputRepr()[,c(4, 1:3)]
-    res <- round_dt(res)
-    res$R <- paste0(res$R, " (", res$lwr, "-", res$upr, ")")
+    res$R <- paste0(round(res$R, 2), " (", round(res$lwr, 2), "-", round(res$upr, 2), ")")
     rhandsontable::rhandsontable(res[, c("Módszer", "R")], readOnly = TRUE, height = 500)
   })
   
@@ -833,8 +832,7 @@ server <- function(input, output, session) {
     res <- merge(dataInputReprRt(), RawData)[`Módszer`%in%input$reprRtMethods]
     res <- res[, c("Módszer", "Date", "R", "lwr", "upr")]
     res <- res[order(`Módszer`, Date)]
-    res <- round_dt(res)
-    if(input$reprRtCi) res$R <- paste0(res$R, " (", res$lwr, "-", res$upr, ")")
+    if(input$reprRtCi) res$R <- paste0(round(res$R, 2), " (", round(res$lwr, 2), "-", round(res$upr, 2), ")")
     setnames(res, c("Módszer", "Dátum", "R", "lwr", "upr"))
     res
   })
@@ -903,7 +901,7 @@ server <- function(input, output, session) {
     sims <- dataInputProjcomp()
     if(!is.null(sims)) {
       ggplot(sims, aes(x = Date,y = CaseNumber, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
-        scale_y_continuous(labels = sepform) +
+        scale_y_continuous(labels = function(x) format(x, big.mark = " ", scientific = FALSE)) +
         geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
         geom_ribbon(data = subset(sims, .id==0), aes(y = med, ymin = lwr, ymax = upr), alpha = 0.2) +
         geom_line(data = subset(sims, .id==0), aes(y = med), size = 1.5) +
@@ -917,7 +915,7 @@ server <- function(input, output, session) {
   })
   
   output$projcompTab <- rhandsontable::renderRHandsontable({
-    sims <- round_dt(dataInputProjcomp()[.id=="CI",c("Date", "med", "lwr", "upr")], 0)
+    sims <- dataInputProjcomp()[.id=="CI",c("Date", "med", "lwr", "upr")]
     sims$Pred <- paste0(sims$med, " (", sims$lwr, "-", sims$upr, ")")
     rhandsontable::rhandsontable(sims[, c("Date", "Pred")],
                                  colHeaders = c("Dátum", "Becsült napi esetszám (95%-os CI) [fő/nap]"), readOnly = TRUE)
@@ -952,16 +950,16 @@ server <- function(input, output, session) {
     res$lwr <- res$lwr*100
     res$value <- res$value*100
     res$upr <- res$upr*100
-    res <- dcast(round_dt(res), Date ~ `Típus`, value.var = c("lwr", "value", "upr"))
+    res <- dcast(res, Date ~ `Típus`, value.var = c("lwr", "value", "upr"))
     res$Crude <- if(input$cfrCi) ifelse(!is.na(res$value_Nyers),
-                                        paste0(res$value_Nyers, " (", res$lwr_Nyers, "-", res$upr_Nyers, ")"), NA) else
+                                        paste0(round(res$value_Nyers, 2), " (", round(res$lwr_Nyers, 2), "-", round(res$upr_Nyers, 2), ")"), NA) else
                                           res$value_Nyers
-    res$Corrected <- if(input$cfrCi) ifelse(!is.na(res$`value_Korrigált`), paste0(res$`value_Korrigált`, " (",
-                                                                                  res$`lwr_Korrigált`, "-", res$`upr_Korrigált`,
+    res$Corrected <- if(input$cfrCi) ifelse(!is.na(res$`value_Korrigált`), paste0(round(res$`value_Korrigált`, 2), " (",
+                                                                                  round(res$`lwr_Korrigált`, 2), "-", round(res$`upr_Korrigált`, 2),
                                                                                   ")"), NA) else res$`value_Korrigált`
-    res$Realtime <- if(input$cfrCi) ifelse(!is.na(res$`value_Valós idejű`), paste0(res$`value_Valós idejű`, " (",
-                                                                                   res$`lwr_Valós idejű`, "-",
-                                                                                   res$`upr_Valós idejű`, ")"), NA) else
+    res$Realtime <- if(input$cfrCi) ifelse(!is.na(res$`value_Valós idejű`), paste0(round(res$`value_Valós idejű`, 2), " (",
+                                                                                   round(res$`lwr_Valós idejű`, 2), "-",
+                                                                                   round(res$`upr_Valós idejű`, 2), ")"), NA) else
                                                                                      res$`value_Valós idejű`
     rhandsontable::rhandsontable(res[, .(Date, Crude, Corrected, Realtime)],
                                  colHeaders = c("Dátum",

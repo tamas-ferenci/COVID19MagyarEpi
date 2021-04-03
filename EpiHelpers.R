@@ -71,11 +71,6 @@ r2R0gamma <- function(r, si_mean, si_sd) {
   (1+r*si_sd^2/si_mean)^(si_mean^2/si_sd^2)
 }
 
-round_dt <- function(dt, digits = 2) as.data.table(dt, keep.rownames = TRUE)[, lapply(.SD, function(x)
-  if(is.numeric(x)&!is.integer(x)) format(round(x, digits), nsmall = digits, trim = TRUE) else x)]
-
-sepform <- function(x) format(x, big.mark = " ", scientific = FALSE)
-
 epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE,
                          loessfit = TRUE, ci = TRUE, conf = 95, delta = FALSE, deltadate = NA, forecast = FALSE) {
   pred$pred$col <- is.na(pred$pred[[what]])
