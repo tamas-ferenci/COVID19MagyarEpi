@@ -1,4 +1,5 @@
 library(data.table)
+Sys.setlocale(locale = "hu_HU.utf8")
 
 # RawData <- data.table(Date=seq.Date(as.Date("2020-03-04"),as.Date("2020-07-24"),by="days"),
 #                       CaseNumber=c(3,0,2,2,2,3,1,3,3,6,7,7,11,8,15,12,17,28,35,21,38,37,39,42,66,38,45,34,60,38,55,55,11,73,78,
@@ -77,12 +78,10 @@ cfrsensgrid$`Korrigált halálozási arány [%]` <- apply(cfrsensgrid, 1, functi
 })
 saveRDS(cfrsensgrid, "/srv/shiny-server/COVID19MagyarEpi/cfrsensgrid.rds")
 
-tf <- tempfile(fileext = ".xls")
-download.file("https://www.ksh.hu/docs/hun/xstadat/xstadat_evkozi/xls/1_2h.xls", tf, mode = "wb")
-RawData <- as.data.table(rio::import(tf, skip = 3)[,c(3, 5:17, 19:31)])
+RawData <- fread("https://www.ksh.hu/stadat_files/nep/hu/nep0065.csv", dec = ",", skip = 3, encoding = "Latin-1")[,c(3, 5:17, 19:31)]
 names(RawData) <- c("date", paste0("Male_", c(0, seq(35, 90, 5))),
                     paste0("Female_", c(0, seq(35, 90, 5))))
-RawData$date <- as.Date(RawData$date, tz = "CET")
+RawData$date <- as.Date(RawData$date, format = "%Y. %B %d.")
 for(i in 2:ncol(RawData)) {
   RawData[[i]][RawData[[i]]=="–"] <- 0
   RawData[[i]] <- as.numeric(RawData[[i]])

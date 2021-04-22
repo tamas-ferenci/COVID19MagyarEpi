@@ -7,9 +7,9 @@ RawData <- readRDS("RawData.rds")
 SImuDefault <- 4.7
 SIsdDefault <- 2.9
 
+Sys.setlocale(locale = "hu_HU.utf8")
 source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
-Sys.setlocale(locale = "hu_HU.utf8")
 # options(mc.cores = parallel::detectCores())
 # modCorrected <- readRDS("CFR_corrected_stan.rds")
 # modRealtime <- readRDS("CFR_realtime_stan.rds")
@@ -466,7 +466,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.46"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.47"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
