@@ -325,34 +325,34 @@ ui <- fluidPage(
                             )
                           )
                  ),
-                 tabPanel("Kompartment-modell (hosszú távú)",
-                          fluidRow(
-                            column(8,                          
-                                   conditionalPanel("input.projcompType=='Grafikon'", plotOutput("projcompGraph")),
-                                   conditionalPanel("input.projcompType=='Táblázat'",
-                                                    rhandsontable::rHandsontableOutput("projcompTab"))
-                            ),
-                            column(4,
-                                   rhandsontable::rHandsontableOutput("projcompInput"),
-                                   fluidRow(hr(), actionButton("projcompAddrow", "Új sor hozzáadása"),
-                                            actionButton("projcompDeleterow", "Utolsó sor törlése")))
-                          ),
-                          #textOutput("projcompText"),
-                          hr(),
-                          fluidRow(
-                            column(3,
-                                   radioButtons("projcompType", "Megjelenítés", c("Grafikon", "Táblázat")),
-                                   dateInput("projcompEnd", "Előrevetítés vége", max(RawData$Date)+100, max(RawData$Date)+1,
-                                             max(RawData$Date)+200),
-                                   conditionalPanel("input.projcompType=='Grafikon'",
-                                                    checkboxInput("projcompLogy", "Függőleges tengely logaritmikus"))
-                            ),
-                            column(3,
-                                   numericInput("projcompIncub", "Inkubációs idő [nap]", 5, 0, 20, 0.1),
-                                   numericInput("projcompInfect", "Fertőzőképesség hossza [nap]", 3, 0, 20, 0.1)
-                            )
-                          )
-                 ),
+                 # tabPanel("Kompartment-modell (hosszú távú)",
+                 #          fluidRow(
+                 #            column(8,                          
+                 #                   conditionalPanel("input.projcompType=='Grafikon'", plotOutput("projcompGraph")),
+                 #                   conditionalPanel("input.projcompType=='Táblázat'",
+                 #                                    rhandsontable::rHandsontableOutput("projcompTab"))
+                 #            ),
+                 #            column(4,
+                 #                   rhandsontable::rHandsontableOutput("projcompInput"),
+                 #                   fluidRow(hr(), actionButton("projcompAddrow", "Új sor hozzáadása"),
+                 #                            actionButton("projcompDeleterow", "Utolsó sor törlése")))
+                 #          ),
+                 #          #textOutput("projcompText"),
+                 #          hr(),
+                 #          fluidRow(
+                 #            column(3,
+                 #                   radioButtons("projcompType", "Megjelenítés", c("Grafikon", "Táblázat")),
+                 #                   dateInput("projcompEnd", "Előrevetítés vége", max(RawData$Date)+100, max(RawData$Date)+1,
+                 #                             max(RawData$Date)+200),
+                 #                   conditionalPanel("input.projcompType=='Grafikon'",
+                 #                                    checkboxInput("projcompLogy", "Függőleges tengely logaritmikus"))
+                 #            ),
+                 #            column(3,
+                 #                   numericInput("projcompIncub", "Inkubációs idő [nap]", 5, 0, 20, 0.1),
+                 #                   numericInput("projcompInfect", "Fertőzőképesség hossza [nap]", 3, 0, 20, 0.1)
+                 #            )
+                 #          )
+                 # ),
                  tabPanel("Magyarázat", withMathJax(includeMarkdown("projExplanation.md")))
                )
              )
@@ -421,6 +421,8 @@ ui <- fluidPage(
                             column(3,
                                    radioButtons("cfrType", "Megjelenítés", c("Grafikon", "Táblázat")),
                                    checkboxInput("cfrCi", "Konfidenciaintervallum megjelenítése"),
+                                   dateInput("cfrStartDate", "A megjelenítés kezdő dátuma", as.Date("2020-10-10"), min(RawData$Date),
+                                             max(RawData$Date)-1),
                                    conditionalPanel("input.cfrCi==1",
                                                     numericInput("cfrConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
                             ),
@@ -428,7 +430,7 @@ ui <- fluidPage(
                                    conditionalPanel("input.cfrType=='Grafikon'",
                                                     checkboxGroupInput("cfrToplot", "Megjelenítendő halálozási arányok",
                                                                        c("Nyers", "Korrigált", "Valós idejű"),
-                                                                       selected = c("Nyers", "Korrigált")))
+                                                                       selected = c("Nyers", "Korrigált", "Valós idejű")))
                             ),
                             column(5,
                                    numericInput("cfrDDTmu", "A diagnózis-halál idő várható értéke:", 13, 0.1, 20, 0.1),
@@ -466,7 +468,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.47"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.48"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -679,7 +681,8 @@ server <- function(input, output, session) {
     res$date <- ISOweek::ISOweek2date(paste0(res$isoyear, "-W", sprintf("%02d", res$isoweek), "-1"))
     res$lwr <- res$excess - z*res$se
     res$upr <- res$excess + z*res$se
-    res[isoweek%in%names(table(lubridate::isoweek(RawData$Date)))[table(lubridate::isoweek(RawData$Date))==7]]
+    res$NoDays <- sapply(1:nrow(res), function(i) nrow(RawData[lubridate::isoweek(Date)==res$isoweek[i]&lubridate::year(Date)==res$isoyear[i]]))
+    res[NoDays==7]
   })
   
   dataInputexcessandobsmortGraph <- reactive({
@@ -932,7 +935,13 @@ server <- function(input, output, session) {
   })
   
   dataInputCfr <- reactive({
-    cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, input$cfrConf)
+    progress <- shiny::Progress$new()
+    progress$set(message = "Számolás", value = 0)
+    on.exit(progress$close())
+    updateProgress <- function(detail = NULL) {
+      progress$inc(amount = 1/(2*(nrow(RawData)-9)+2), detail = detail)
+    }
+    cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, input$cfrConf, updateProgress = updateProgress)
   })
   
   output$cfrGraph <- renderPlot({
@@ -941,8 +950,9 @@ server <- function(input, output, session) {
     scalval <- c("Nyers" = pal[1], "Korrigált" = pal[2], "Valós idejű" = pal[3])
     ggplot(subset(res, `Típus`%in%input$cfrToplot), aes(x = Date, y = value*100, color = `Típus`, fill = `Típus`)) +
       geom_line() + {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100), alpha = 0.2)} +
-      coord_cartesian(ylim = c(0, 40)) + labs(x = "Dátum", y = "Halálozási arány [%]") +
-      scale_color_manual(values = scalval) + scale_fill_manual(values = scalval)
+      coord_cartesian(xlim = c(input$cfrStartDate, NA), ylim = c(0, max(res[Date>=input$cfrStartDate]$value*100))) +
+      labs(x = "Dátum", y = "Halálozási arány [%]") +
+      scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) + scale_x_date(date_breaks = "month", date_labels = "%b")
   })
   
   output$cfrTab <- rhandsontable::renderRHandsontable({
@@ -972,7 +982,7 @@ server <- function(input, output, session) {
                                                 if(input$cfrCi) paste0("Valós idejű halálozási arány (", input$cfrConf,
                                                                        "%-os CI) [fő]") else
                                                                          "Valós idejű halálozási arány [%]"),
-                                 readOnly = TRUE)
+                                 readOnly = TRUE, height = 500)
   })
   
   dataInputCfrUnderdet <- reactive({
@@ -1001,7 +1011,6 @@ server <- function(input, output, session) {
       ggnewscale::new_scale_fill() + geom_tile(aes(fill = `Korrigált kumulált esetszám [fő]`)) +
       scale_fill_continuous(guide = guide_colorbar(order = 2)) + theme(legend.position = "right", legend.box = "horizontal") +
       labs(x = "A diagnózis-halál idő várható értéke", y = "A diagnózis-halál idő szórása")
-    
   })
   
   output$report <- downloadHandler(
@@ -1015,9 +1024,9 @@ server <- function(input, output, session) {
       file.copy("RawData.rds", tempRawData, overwrite = TRUE)
       file.copy("EpiHelpers.R", tempEpiHelpers, overwrite = TRUE)
       params <- list(reportConf = input$reportConf, reportSImu = input$reportSImu, reportSIsd = input$reportSIsd)
-      rmarkdown::render(tempReport, output_file = file, params = params, envir = new.env(parent = globalenv()))
-    }
-  )
+      rmarkdown::render(tempReport, params = params, envir = new.env(parent = globalenv()))
+      file.copy(file.path(td, "report.pdf"), file)
+    })
 }
 
 shinyApp(ui = ui, server = server)

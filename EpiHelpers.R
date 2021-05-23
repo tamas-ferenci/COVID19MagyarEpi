@@ -96,23 +96,23 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
 grText <- function(m, fun, deltar = 0, future = FALSE, deltarDate = NA, startDate = NA) {
   if(fun=="Exponenciális") {
     paste0(if(future) paste0( "A jövőbeli növekedési ráta ", deltarDate, " dátumtól ")  else 
-      "A fenti exponenciális illesztéssel a növekedési ráta ", round_dt(coef(m)+deltar)[rn=="Date", -"rn"], " (95%-os CI: ",
-      paste0(round_dt(confint(m)+deltar)[rn=="Date", -"rn"], collapse = " - "),
+      "A fenti exponenciális illesztéssel a növekedési ráta ", round(coef(m)["Date"]+deltar, 2), " (95%-os CI: ",
+      paste0(round(confint(m)["Date",]+deltar, 2), collapse = " - "),
       "). Ez azt jelenti, hogy a duplázódási idő (az ahhoz szükséges idő, hogy a napi esetszám kétszeresére nőjön) ",
-      round_dt(log(2)/(coef(m)+deltar))[rn=="Date", -"rn"], " nap (95%-os CI: ",
-      paste0(rev(round_dt(log(2)/(confint(m)+deltar))[rn=="Date", -"rn"]), collapse = " - "), ").")
+      round(log(2)/(coef(m)["Date"]+deltar), 2), " nap (95%-os CI: ",
+      paste0(rev(round(log(2)/(confint(m)["Date",]+deltar), 2)), collapse = " - "), ").")
   } else if(fun=="Hatvány") {
     paste0(if(future) paste0( "A jövőbeli hatványkitevő ", deltarDate, " dátumtól ")  else 
-      "A fenti hatványfüggvényes illesztéssel a hatványkitevő ", round_dt(coef(m)+deltar)[rn=="log(NumDate)", -"rn"],
-      " (95%-os CI: ", paste0(round_dt(confint(m)+deltar)[rn=="log(NumDate)", -"rn"], collapse = " - "), ").")
+      "A fenti hatványfüggvényes illesztéssel a hatványkitevő ", round(coef(m)["log(NumDate)"]+deltar, 2),
+      " (95%-os CI: ", paste0(round(confint(m)["log(NumDate)",]+deltar, 2), collapse = " - "), ").")
   } else if(fun=="Logisztikus") {
-    paste0("A fenti logisztikus illesztéssel a fordulópont ", round_dt(coef(m))[rn=="xmid",-"rn"], " nap, azaz ",
-           as.Date(startDate+as.numeric(round_dt(coef(m))[rn=="xmid",-"rn"])-1), " (95%-os CI: ",
-           paste0(round_dt(confint(m))[rn=="xmid", -"rn"], collapse = " - "), "), a skála ",
-           round_dt(coef(m))[rn=="scal", -"rn"], " (95%-os CI: ",
-           paste0(round_dt(confint(m))[rn=="scal", -"rn"], collapse = " - "), "), az aszimptotikus szint ",
-           round_dt(coef(m))[rn=="Asym", -"rn"], " (95%-os CI: ",
-           paste0(round_dt(confint(m))[rn=="Asym", -"rn"], collapse = " - "), ").")
+    paste0("A fenti logisztikus illesztéssel a fordulópont ", round(coef(m)["xmid"], 2), " nap, azaz ",
+           as.Date(startDate+as.numeric(round(coef(m)["xmid"], 2))-1), " (95%-os CI: ",
+           paste0(round(confint(m)["xmid",], 2), collapse = " - "), "), a skála ",
+           round(coef(m)["scal"], 2), " (95%-os CI: ",
+           paste0(round(confint(m)["scal",], 2), collapse = " - "), "), az aszimptotikus szint ",
+           round(coef(m)["Asym"], 2), " (95%-os CI: ",
+           paste0(round(confint(m)["Asym",], 2), collapse = " - "), ").")
   }
 }
 
@@ -180,7 +180,7 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
 binom.test2 <- function(x, n, conf.level) if(n==0) list(estimate = NA, conf.int = c(NA, NA)) else
   binom.test(x, n, conf.level = conf.level)
 
-cfrData <- function(rd, DDTmu, DDTsd, conf = 95, last = FALSE) {
+cfrData <- function(rd, DDTmu, DDTsd, conf = 95, last = FALSE, updateProgress = NULL) {
   conf <- conf/100
   discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(DDTmu)-log(DDTsd^2/DDTmu^2+1)/2,
                                     sdlog = sqrt(log(DDTsd^2/DDTmu^2+1)))
@@ -189,10 +189,16 @@ cfrData <- function(rd, DDTmu, DDTsd, conf = 95, last = FALSE) {
   rd$u2 <- round(sapply(1:nrow(rd), function(t) sum(sapply(0:(t-1), function(j) rd$CaseNumber[t-j]*dj[j+1]))))
   if (last) return(plogis(bbmle::coef(bbmle::mle2(CumDeathNumber ~ dbinom(size = u, prob = plogis(p)),
                                                   data = tail(rd, 1), start = list(p = -2)))))
-  CfrCorrected <- lapply(10:nrow(rd), function(end)
-    bbmle::mle2(CumDeathNumber ~ dbinom(size = u, prob = plogis(p)), data = rd[end], start = list(p = -2)))
-  CfrRealtime <- lapply(10:nrow(rd), function(end)
-    bbmle::mle2(DeathNumber ~ dbinom(size = u2, prob = plogis(p)), data = rd[end], start = list(p = -2)))
+  updateProgress(detail = "Előkészítés")
+  CfrCorrected <- lapply(10:nrow(rd), function(end) {
+    updateProgress(detail = paste0("Korrigált (", end-9, "/", nrow(rd)-9, ")"))
+    bbmle::mle2(CumDeathNumber ~ dbinom(size = u, prob = plogis(p)), data = rd[end], start = list(p = -2))
+  })
+  CfrRealtime <- lapply(10:nrow(rd), function(end) {
+    updateProgress(detail = paste0("Valós idejű (", end-9, "/", nrow(rd)-9, ")"))
+    bbmle::mle2(DeathNumber ~ dbinom(size = u2, prob = plogis(p)), data = rd[end], start = list(p = -2))
+  })
+  updateProgress(detail = "Összeállítás")
   rbind(data.table(t(mapply(function(...) with(binom.test2(...),
                                                c(value = as.numeric(estimate), lwr = conf.int[1], upr = conf.int[2])),
                             rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf))),

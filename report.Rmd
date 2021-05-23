@@ -53,8 +53,8 @@ ggplot(resReprRt, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer
 Az utolsó hét adatai Cori et al módszere szerint számszerűen:
 
 ```{r}
-res <- round_dt(resReprRt[`Módszer`=="Cori", c("Módszer", "Date", "R", "lwr", "upr")][order(Date, decreasing = TRUE)][1:7])
-res$R <- paste0(res$R, " (", res$lwr, "-", res$upr, ")")
+res <- resReprRt[`Módszer`=="Cori", c("Módszer", "Date", "R", "lwr", "upr")][order(Date, decreasing = TRUE)][1:7]
+res$R <- paste0(round(res$R, 2), " (", round(res$lwr, 2), "-", round(res$upr, 2), ")")
 knitr::kable(res[, c("Date", "R")], col.names = c("Dátum", "R"))
 ```
 
@@ -72,9 +72,8 @@ epicurvePlot(predData(RawData, wind = c(max(RawData$Date)-14, max(RawData$Date))
 Az utolsó hét adatai és számszerű előrejelzések:
 
 ```{r}
-res <- round_dt(predData(RawData, wind = c(max(RawData$Date)-14, max(RawData$Date)), projper = 7,
-                         level = params$reportConf)$pred)
-res$Pred <-  paste0(res$fit, " (", res$lwr, "-", res$upr, ")")
+res <- predData(RawData, wind = c(max(RawData$Date)-14, max(RawData$Date)), projper = 7, level = params$reportConf)$pred
+res$Pred <-  paste0(round(res$fit, 2), " (", round(res$lwr, 2), "-", round(res$upr, 2), ")")
 res <- res[!duplicated(Date)][Date>=RawData$Date[nrow(RawData)-7]]
 knitr::kable(res[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
                      `Becsült napi esetszám (95%-os CI) [fő/nap]` = Pred)])
@@ -83,4 +82,3 @@ knitr::kable(res[, .(`Dátum` = Date, `Napi esetszám [fő/nap]` = CaseNumber,
 # Számításhoz használt feltevések
 
 A következő számításokhoz a modell feltételezi, hogy a serial interval (tehát az egy beteg tüneteinek jelentkezésétől az általa megbetegített emberek -- másodlagos fertőzések -- tüneteinek jelentkezéséig eltelő idő) gamma eloszlású `r params$reportSImu` várható értékkel és `r params$reportSIsd` szórással.
-
