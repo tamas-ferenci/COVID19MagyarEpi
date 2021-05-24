@@ -34,6 +34,7 @@ Bár a konkrét cél a koronavírus-járványra adott válasz támogatása, val�
 -  Röst Gergely; Bartha Ferenc A.; Bogya Norbert; Boldog Péter; Dénes Attila; Ferenci Tamás; Horváth Krisztina J.; Juhász Attila; Nagy Csilla; Tekeli Tamás; Vizi Zsolt; Oroszi Beatrix. [Early Phase of the COVID-19 Outbreak in Hungary and Post-Lockdown Scenarios](https://www.mdpi.com/1999-4915/12/7/708/htm). VIRUSES 12:7 p. 708 (2020).
 - Ferenci Tamás. [Versenyfutás a koronavírus-vakcináért](https://mta.hu/tudomany_hirei/versenyfutas-a-vakcinaert-110691). (2020). Online cikk.
 - Ferenci Tamás. [Többlethalálozási adatok európai összevetésben](https://github.com/tamas-ferenci/ExcessMortEUR). (2021). Online cikk.
+- Ferenci Tamás. [A magyarországi regisztrált koronavírusos halottak adatainak elemzése](https://github.com/tamas-ferenci/C19MortalityLineListingHUN). (2021). Online cikk.
 
 ## Adatok forrása
 
