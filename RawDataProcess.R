@@ -34,7 +34,7 @@ RawData <- rbind(
 RawData2 <- fread("https://covid.ourworldindata.org/data/owid-covid-data.csv")
 RawData2 <- RawData2[location=="Hungary"&tests_units=="tests performed", .(Date = date-1, TestNumber = new_tests)]
 # RawData2 <- rbind(RawData2, data.table(Date = as.IDate(c("2020-11-09", "2020-11-10")),
-                                       # TestNumber = c(13068, 20987)))
+# TestNumber = c(13068, 20987)))
 # RawData2 <- rbind(RawData2, data.table(Date = as.IDate(c("2020-09-30")),TestNumber = c(11972)))
 
 RawData <- merge(RawData, RawData2, sort = FALSE, all.x = TRUE)
@@ -53,6 +53,20 @@ RawData$TestNumber[257:258] <- mean(RawData$TestNumber[257:258])
 # 
 # RawData <- merge(RawData, CaseData[Countries.and.territories=="Hungary", c("Date", "CaseNumber")], all.x = TRUE)
 # RawData[is.na(CaseNumber)]$CaseNumber <- 0
+
+weekendidxs <- which(RawData$Date>=as.Date("2021-06-11")&lubridate::wday(RawData$Date, week_start = 1)==7)
+RawData$CaseNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
+  c(round(0.4*RawData$CaseNumber[weekendidxs]),
+    round(0.35*RawData$CaseNumber[weekendidxs]),
+    RawData$CaseNumber[weekendidxs]-(round(0.4*RawData$CaseNumber[weekendidxs])+round(0.35*RawData$CaseNumber[weekendidxs])))
+RawData$DeathNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
+  c(round(0.4*RawData$DeathNumber[weekendidxs]),
+    round(0.3*RawData$DeathNumber[weekendidxs]),
+    RawData$DeathNumber[weekendidxs]-(round(0.4*RawData$DeathNumber[weekendidxs])+round(0.3*RawData$DeathNumber[weekendidxs])))
+RawData$TestNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
+  c(round(0.35*RawData$TestNumber[weekendidxs]),
+    round(0.35*RawData$TestNumber[weekendidxs]),
+    RawData$TestNumber[weekendidxs]-(round(0.35*RawData$TestNumber[weekendidxs])+round(0.35*RawData$TestNumber[weekendidxs])))
 
 RawData$CaseNumber <- as.integer(RawData$CaseNumber)
 RawData$DeathNumber <- as.integer(RawData$DeathNumber)

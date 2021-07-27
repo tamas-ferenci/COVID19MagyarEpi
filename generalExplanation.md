@@ -31,10 +31,11 @@ Bár a konkrét cél a koronavírus-járványra adott válasz támogatása, val�
 - Ferenci Tamás. [Járványok: kitörés, terjedés, elfojtás](https://mgyt.hu/wp-content/uploads/2020/06/Gyogyszereszet-2006-ELOZETES.pdf). GYÓGYSZERÉSZET 64:6 pp. 324-333., 10 p. (2020).
 -  Ferenci Tamás. [Az első hullám tapasztalatai](https://index.hu/velemeny/olvir/2020/05/18/koronavirus_jarvany_magyarorszag_elso_hullam_tapasztalatok_sikeres_intezkedesek_hibak_ferenci_tamas/). (2020). Online cikk.
 - [Ott a végünk, ha nem beszéljük meg nyíltan, mi jó, és mi nem a járvány kezelésében](https://24.hu/belfold/2020/04/07/koronavirus-biostatisztikus-ferenci-tamas-halalozas-prognozis-interju/). Interjú Ferenci Tamással (2020).
--  Röst Gergely; Bartha Ferenc A.; Bogya Norbert; Boldog Péter; Dénes Attila; Ferenci Tamás; Horváth Krisztina J.; Juhász Attila; Nagy Csilla; Tekeli Tamás; Vizi Zsolt; Oroszi Beatrix. [Early Phase of the COVID-19 Outbreak in Hungary and Post-Lockdown Scenarios](https://www.mdpi.com/1999-4915/12/7/708/htm). VIRUSES 12:7 p. 708 (2020).
+-  Röst Gergely; Bartha Ferenc A.; Bogya Norbert; Boldog Péter; Dénes Attila; Ferenci Tamás; Horváth Krisztina J.; Juhász Attila; Nagy Csilla; Tekeli Tamás; Vizi Zsolt; Oroszi Beatrix. [Early Phase of the COVID-19 Outbreak in Hungary and Post-Lockdown Scenarios](https://www.mdpi.com/1999-4915/12/7/708/htm). VIRUSES 12:7 p. 708 (2020). DOI: 10.3390/v12070708.
 - Ferenci Tamás. [Versenyfutás a koronavírus-vakcináért](https://mta.hu/tudomany_hirei/versenyfutas-a-vakcinaert-110691). (2020). Online cikk.
 - Ferenci Tamás. [Többlethalálozási adatok európai összevetésben](https://github.com/tamas-ferenci/ExcessMortEUR). (2021). Online cikk.
 - Ferenci Tamás. [A magyarországi regisztrált koronavírusos halottak adatainak elemzése](https://github.com/tamas-ferenci/C19MortalityLineListingHUN). (2021). Online cikk.
+- Ferenci Tamás. [Different approaches to quantify years of life lost from COVID-19](https://link.springer.com/article/10.1007/s10654-021-00774-0). Eur J Epidemiol. 2021 Jun 10;1-9. DOI: 10.1007/s10654-021-00774-0.
 
 ## Adatok forrása
 
@@ -44,9 +45,11 @@ Az adatokat egyelőre kézzel gépelem be az NNK adatközlései alapján, napont
 
 Frissítés (2020. július 29.): Hosszas gondolkodás után végülis átállítottam az oldal adatforrását a [Johns Hopkins adatbázisra](https://github.com/CSSEGISandData/COVID-19), így az oldal innentől teljesen automatikusan és naponta frissül. Jobban örültem volna az ECDC vagy WHO használatának (egy fokkal mégis csak "hivatalosabbak"), de mindkettőben vannak hibák - ami amúgy szintén megérne egy misét... - míg a Johns Hopkins hónapokra visszamenően helyes számokat tartalmaz.
 
+Frissítés (2021. július 27.): A hivatalos magyar adatközlés június közepétől nem ad meg hétvégi adatokat, hanem hétfőn egyben közli őket. (A "hétvégi adatokat közöljük" címke alatt, de mivel két napon át nincs adatközlés, ez valójában három nap - péntek, szombat, vasárnap - együttes adata, hiszen a hétfő előtti utolsó adatközlés a megelőző hét péntek reggeli, ami a csütörtöki adatokat adja meg.) Mivel ez hosszabb időre így maradt, így mindenképpen kezdeni kellett valamit. A múltbeli adatok szerint a pénteki és a szombati számok meglehetősen stabil hányadát adták a három nap együttes adatának, így úgy döntöttem, hogy ezen arányok használatával szétosztom a hétfő reggel közölt (össz)adatot a három nap között. A szétosztási arányok: esetszámban 0,4 és 0,35, halálozások számában 0,4 és 0,3, teszt-számban 0,35 és 0,35 (rendre a péntek és a szombat). Az így kapott számokat kerekítettem, majd kivontam a hétfőn közöltből (hogy mindegyik szám egész legyen és az összeg se változzon).
+
 Az elvégzett tesztek számának adatforrása az Our World in Data ([OWID](https://github.com/owid/covid-19-data/tree/master/public/data)).
 
-A többlethalálozási számításokhoz a heti halálozási adatok forrása a Központi Statisztikai Hivatal ([STADAT évközi 1.2](http://www.ksh.hu/docs/hun/xstadat/xstadat_evkozi/e_wnh004f.html)).
+A többlethalálozási számításokhoz a heti halálozási adatok forrása a Központi Statisztikai Hivatal ([STADAT  22.2.1.2](https://www.ksh.hu/stadat_files/nep/hu/nep0065.html)).
 
 ## Az adatok felhasználása
 

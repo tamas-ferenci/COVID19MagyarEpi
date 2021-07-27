@@ -5,3 +5,7 @@ h2 {
 p {
   text-align: justify;
 }
+
+.fb_iframe_widget span {
+  vertical-align: baseline !important;
+}

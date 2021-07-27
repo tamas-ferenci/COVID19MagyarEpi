@@ -189,16 +189,16 @@ cfrData <- function(rd, DDTmu, DDTsd, conf = 95, last = FALSE, updateProgress = 
   rd$u2 <- round(sapply(1:nrow(rd), function(t) sum(sapply(0:(t-1), function(j) rd$CaseNumber[t-j]*dj[j+1]))))
   if (last) return(plogis(bbmle::coef(bbmle::mle2(CumDeathNumber ~ dbinom(size = u, prob = plogis(p)),
                                                   data = tail(rd, 1), start = list(p = -2)))))
-  updateProgress(detail = "Előkészítés")
+  if(!is.null(updateProgress)) updateProgress(detail = "Előkészítés")
   CfrCorrected <- lapply(10:nrow(rd), function(end) {
-    updateProgress(detail = paste0("Korrigált (", end-9, "/", nrow(rd)-9, ")"))
+    if(!is.null(updateProgress)) updateProgress(detail = paste0("Korrigált (", end-9, "/", nrow(rd)-9, ")"))
     bbmle::mle2(CumDeathNumber ~ dbinom(size = u, prob = plogis(p)), data = rd[end], start = list(p = -2))
   })
   CfrRealtime <- lapply(10:nrow(rd), function(end) {
-    updateProgress(detail = paste0("Valós idejű (", end-9, "/", nrow(rd)-9, ")"))
+    if(!is.null(updateProgress))  updateProgress(detail = paste0("Valós idejű (", end-9, "/", nrow(rd)-9, ")"))
     bbmle::mle2(DeathNumber ~ dbinom(size = u2, prob = plogis(p)), data = rd[end], start = list(p = -2))
   })
-  updateProgress(detail = "Összeállítás")
+  if(!is.null(updateProgress)) updateProgress(detail = "Összeállítás")
   rbind(data.table(t(mapply(function(...) with(binom.test2(...),
                                                c(value = as.numeric(estimate), lwr = conf.int[1], upr = conf.int[2])),
                             rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf))),

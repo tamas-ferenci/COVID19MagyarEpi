@@ -8,6 +8,7 @@ SImuDefault <- 4.7
 SIsdDefault <- 2.9
 
 Sys.setlocale(locale = "hu_HU.utf8")
+options(shiny.useragg = TRUE)
 source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
 # options(mc.cores = parallel::detectCores())
@@ -57,7 +58,7 @@ ui <- fluidPage(
   
   tags$div(id = "fb-root"),
   tags$script(async = NA, defer = NA, crossorigin = "anonymous",
-              src = "https://connect.facebook.net/hu_HU/sdk.js#xfbml=1&version=v6.0"),
+              src = "https://connect.facebook.net/hu_HU/sdk.js#xfbml=1&version=v11.0"),
   
   tags$style(".shiny-file-input-progress {display: none}"),
   
@@ -67,8 +68,20 @@ ui <- fluidPage(
     a("itt", href = "https://github.com/tamas-ferenci/COVID19MagyarEpi", target = "_blank"),
     "érhető el. Írta: Ferenci Tamás. Az adatok utolsó frissítésének időpontja:", paste0(format(max(RawData$Date),
                                                                                                "%Y. %m. %d"), ".")),
-  div(class="fb-like", "data-href"="https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/",
-      "data-width" = "600", "data-layout"="standard", "data-action"="like", "data-size"="small", "data-share"="true"), p(),
+  # div(class="fb-like", "data-href"="https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/",
+  #     "data-width" = "600", "data-layout" = "standard", "data-action" = "like", "data-size" = "small",
+  #     "data-share" = "true"), p(),
+  
+  div(class = "fb-share-button", "data-href" = "https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/",
+      "data-layout" = "button_count", "data-size" = "small"),
+  a(target = "_blank", href="https://www.facebook.com/sharer/sharer.php?u=https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/",
+    class="fb-xfbml-parse-ignore"),
+  
+  a(href = "https://twitter.com/intent/tweet?url=https://research.physcon.uni-obuda.hu/COVID19MagyarEpi/",
+    "Tweet", class="twitter-share-button"),
+  includeScript("http://platform.twitter.com/widgets.js"),
+  
+  p(),
   
   navlistPanel(
     tabPanel("Magyarázat", withMathJax(includeMarkdown("generalExplanation.md"))),
@@ -420,17 +433,25 @@ ui <- fluidPage(
                           fluidRow(
                             column(3,
                                    radioButtons("cfrType", "Megjelenítés", c("Grafikon", "Táblázat")),
-                                   checkboxInput("cfrCi", "Konfidenciaintervallum megjelenítése"),
-                                   dateInput("cfrStartDate", "A megjelenítés kezdő dátuma", as.Date("2020-10-10"), min(RawData$Date),
-                                             max(RawData$Date)-1),
-                                   conditionalPanel("input.cfrCi==1",
-                                                    numericInput("cfrConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1))
+                                   conditionalPanel("input.cfrType=='Grafikon'",
+                                                    downloadButton("cfrGraphDlPDF", "Az ábra letöltése (PDF)"),
+                                                    downloadButton("cfrGraphDlPNG", "Az ábra letöltése (PNG)")
+                                   ),
+                                   conditionalPanel("input.cfrType=='Táblázat'",
+                                                    downloadButton("cfrTabDlCSV", "A táblázat letöltése (CSV)")
+                                   )
                             ),
                             column(3,
+                                   checkboxInput("cfrCi", "Konfidenciaintervallum megjelenítése"),
+                                   conditionalPanel("input.cfrCi==1",
+                                                    numericInput("cfrConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)),
                                    conditionalPanel("input.cfrType=='Grafikon'",
                                                     checkboxGroupInput("cfrToplot", "Megjelenítendő halálozási arányok",
                                                                        c("Nyers", "Korrigált", "Valós idejű"),
-                                                                       selected = c("Nyers", "Korrigált", "Valós idejű")))
+                                                                       selected = c("Nyers", "Korrigált")),
+                                                    dateInput("cfrStartDate", "A megjelenítés kezdő dátuma",
+                                                              as.Date("2020-10-10"), min(RawData$Date),
+                                                              max(RawData$Date)-1))
                             ),
                             column(5,
                                    numericInput("cfrDDTmu", "A diagnózis-halál idő várható értéke:", 13, 0.1, 20, 0.1),
@@ -468,7 +489,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.49"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.50"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -822,7 +843,7 @@ server <- function(input, output, session) {
       geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +
       labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
-      {if(input$reprRtCi) geom_ribbon(alpha = 0.2)} +
+      {if(input$reprRtCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
       {if(!input$reprRtCi) coord_cartesian(ylim = c(NA, max(res$R)))} +
       scale_x_date(date_breaks = "month", date_labels = "%b") +
       theme(plot.caption = element_text(face = "bold", hjust = 0)) +
@@ -944,18 +965,21 @@ server <- function(input, output, session) {
     cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, input$cfrConf, updateProgress = updateProgress)
   })
   
-  output$cfrGraph <- renderPlot({
+  dataInputcfrGraph <- reactive({
     res <- dataInputCfr()
     pal <- scales::hue_pal()(3)
     scalval <- c("Nyers" = pal[1], "Korrigált" = pal[2], "Valós idejű" = pal[3])
-    ggplot(subset(res, `Típus`%in%input$cfrToplot), aes(x = Date, y = value*100, color = `Típus`, fill = `Típus`)) +
-      geom_line() + {if(input$cfrCi) geom_ribbon(aes(ymin = lwr*100, ymax = upr*100), alpha = 0.2)} +
+    ggplot(subset(res, `Típus`%in%input$cfrToplot),
+           aes(x = Date, y = value*100, ymin = lwr*100, ymax = upr*100, color = `Típus`, fill = `Típus`)) +
+      geom_line() + {if(input$cfrCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
       coord_cartesian(xlim = c(input$cfrStartDate, NA), ylim = c(0, max(res[Date>=input$cfrStartDate]$value*100))) +
       labs(x = "Dátum", y = "Halálozási arány [%]") +
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) + scale_x_date(date_breaks = "month", date_labels = "%b")
   })
   
-  output$cfrTab <- rhandsontable::renderRHandsontable({
+  output$cfrGraph <- renderPlot(dataInputcfrGraph())
+  
+  dataInputCfrTab <- reactive({
     res <- dataInputCfr()
     res$lwr <- res$lwr*100
     res$value <- res$value*100
@@ -971,19 +995,37 @@ server <- function(input, output, session) {
                                                                                    round(res$`lwr_Valós idejű`, 2), "-",
                                                                                    round(res$`upr_Valós idejű`, 2), ")"), NA) else
                                                                                      res$`value_Valós idejű`
-    rhandsontable::rhandsontable(res[, .(Date, Crude, Corrected, Realtime)],
-                                 colHeaders = c("Dátum",
-                                                if(input$cfrCi) paste0("Nyers halálozási arány (", input$cfrConf,
-                                                                       "%-os CI) [%]") else
-                                                                         "Nyers halálozási arány [%]",
-                                                if(input$cfrCi) paste0("Korrigált halálozási arány (", input$cfrConf,
-                                                                       "%-os CI) [fő]") else
-                                                                         "Korrigált halálozási arány [%]",
-                                                if(input$cfrCi) paste0("Valós idejű halálozási arány (", input$cfrConf,
-                                                                       "%-os CI) [fő]") else
-                                                                         "Valós idejű halálozási arány [%]"),
-                                 readOnly = TRUE, height = 500)
+    res
   })
+  
+  output$cfrTab <- rhandsontable::renderRHandsontable(rhandsontable::rhandsontable(
+    dataInputCfrTab()[, .(Date, Crude, Corrected, Realtime)],
+    colHeaders = c("Dátum",
+                   if(input$cfrCi) paste0("Nyers halálozási arány (", input$cfrConf,
+                                          "%-os CI) [%]") else
+                                            "Nyers halálozási arány [%]",
+                   if(input$cfrCi) paste0("Korrigált halálozási arány (", input$cfrConf,
+                                          "%-os CI) [fő]") else
+                                            "Korrigált halálozási arány [%]",
+                   if(input$cfrCi) paste0("Valós idejű halálozási arány (", input$cfrConf,
+                                          "%-os CI) [fő]") else
+                                            "Valós idejű halálozási arány [%]"),
+    readOnly = TRUE, height = 500))
+  
+  output$cfrGraphDlPDF <- downloadHandler(
+    filename = paste0("HalalozasiArany_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
+    content = function(file) ggsave169(file, dataInputcfrGraph())
+  )
+  
+  output$cfrGraphDlPNG <- downloadHandler(
+    filename = paste0("HalalozasiArany_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
+    content = function(file) ggsave169(file, dataInputcfrGraph())
+  )
+  
+  output$cfrTabDlCSV <- downloadHandler(
+    filename = paste0("HalalozasiArany_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
+    content = function(file) fwritecsv(dataInputCfrTab()[, .(Date, Crude, Corrected, Realtime)], file)
+  )
   
   dataInputCfrUnderdet <- reactive({
     cfrData(RawData, input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd, 95, TRUE)
