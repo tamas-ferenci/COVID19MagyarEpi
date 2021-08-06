@@ -9,6 +9,7 @@ SIsdDefault <- 2.9
 
 Sys.setlocale(locale = "hu_HU.utf8")
 options(shiny.useragg = TRUE)
+theme_set(theme_bw())
 source("EpiHelpers.R", encoding = "UTF-8")
 source("SeirModel.R", encoding = "UTF-8")
 # options(mc.cores = parallel::detectCores())
@@ -106,7 +107,7 @@ ui <- fluidPage(
                             ),
                             column(3,
                                    conditionalPanel("input.epicurveIncType=='Grafikon'",
-                                                    checkboxInput("epicurveIncLogy", "Függőleges tengely logaritmikus"),
+                                                    checkboxInput("epicurveIncLogy", "Függőleges tengely logaritmikus", TRUE),
                                                     checkboxInput("epicurveIncLoessfit", "Simítógörbe illesztése", TRUE),
                                                     checkboxInput("epicurveIncFunfit", "Függvény illesztése"),
                                                     conditionalPanel("input.epicurveIncFunfit==1|input.epicurveIncLoessfit==1",
@@ -159,7 +160,7 @@ ui <- fluidPage(
                             ),
                             column(3,
                                    conditionalPanel("input.epicurveMortType=='Grafikon'",
-                                                    checkboxInput("epicurveMortLogy", "Függőleges tengely logaritmikus"),
+                                                    checkboxInput("epicurveMortLogy", "Függőleges tengely logaritmikus", TRUE),
                                                     checkboxInput("epicurveMortLoessfit", "Simítógörbe illesztése", TRUE),
                                                     checkboxInput("epicurveMortFunfit", "Függvény illesztése"),
                                                     conditionalPanel("input.epicurveMortFunfit==1|input.epicurveMortLoessfit==1",
@@ -489,7 +490,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.51"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.52"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
