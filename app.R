@@ -281,6 +281,7 @@ ui <- fluidPage(
                             ),
                             column(3,
                                    conditionalPanel("input.testpositivityType=='Grafikon'",
+                                                    checkboxInput("testpositivityLogy", "Függőleges tengely logaritmikus", FALSE),
                                                     checkboxInput("testpositivitySmoothfit", "Simítógörbe illesztése", TRUE),
                                                     conditionalPanel("input.testpositivitySmoothfit==1",
                                                                      checkboxInput("testpositivityCi",
@@ -490,7 +491,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.52"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.53"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -752,12 +753,17 @@ server <- function(input, output, session) {
   )
   
   dataInputtestpositivityGraph <- reactive({
-    ggplot(RawData, aes(x = Date, y = fracpos, CaseNumber = CaseNumber, TestNumber = TestNumber)) + geom_point() +
-      {if(input$testpositivitySmoothfit) geom_smooth(method = "gam", formula = cbind(CaseNumber, TestNumber-CaseNumber) ~ s(x),
-                                                     method.args = list(family = binomial(link = "logit")),
-                                                     se = input$testpositivityCi, level = input$testpositivityConf/100)} +
+    ggplot(RawData, aes(x = Date, y = CaseNumber/TestNumber, CaseNumber = CaseNumber, TestNumber = TestNumber)) + geom_point() +
+      {if(input$testpositivitySmoothfit)
+        geom_smooth(method = "gam", formula = cbind(CaseNumber, TestNumber-CaseNumber) ~ s(x, k = 20),
+                    method.args = list(family = binomial(link = "logit")),
+                    se = input$testpositivityCi, level = input$testpositivityConf/100, n = 500,
+                    aes(y = stage(CaseNumber/TestNumber, y),
+                        ymin = after_stat(ymin), ymax = after_stat(ymax)))} +
       scale_x_date(date_breaks = "month", date_labels = "%b") +
-      scale_y_continuous(labels = function(x) x*100) + labs(x = "Dátum", y = "Tesztpozitivitási arány [%]") +
+      scale_y_continuous(labels = function(x) x*100, trans = if(input$testpositivityLogy) "log10" else "identity") +
+      {if(input$testpositivityLogy) annotation_logticks()} +
+      labs(x = "Dátum", y = "Tesztpozitivitási arány [%]") +
       geom_hline(yintercept = 0.05, color = "red") +
       theme(plot.caption = element_text(face = "bold", hjust = 0)) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE és OWID")
