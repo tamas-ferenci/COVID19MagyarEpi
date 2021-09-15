@@ -58,15 +58,23 @@ weekendidxs <- which(RawData$Date>=as.Date("2021-06-11")&lubridate::wday(RawData
 RawData$CaseNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
   c(round(0.4*RawData$CaseNumber[weekendidxs]),
     round(0.35*RawData$CaseNumber[weekendidxs]),
-    RawData$CaseNumber[weekendidxs]-(round(0.4*RawData$CaseNumber[weekendidxs])+round(0.35*RawData$CaseNumber[weekendidxs])))
+    RawData$CaseNumber[weekendidxs]-(round(0.4*RawData$CaseNumber[weekendidxs])+
+                                       round(0.35*RawData$CaseNumber[weekendidxs])))
 RawData$DeathNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
   c(round(0.4*RawData$DeathNumber[weekendidxs]),
     round(0.3*RawData$DeathNumber[weekendidxs]),
-    RawData$DeathNumber[weekendidxs]-(round(0.4*RawData$DeathNumber[weekendidxs])+round(0.3*RawData$DeathNumber[weekendidxs])))
+    RawData$DeathNumber[weekendidxs]-(round(0.4*RawData$DeathNumber[weekendidxs])+
+                                        round(0.3*RawData$DeathNumber[weekendidxs])))
 RawData$TestNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
   c(round(0.35*RawData$TestNumber[weekendidxs]),
     round(0.35*RawData$TestNumber[weekendidxs]),
-    RawData$TestNumber[weekendidxs]-(round(0.35*RawData$TestNumber[weekendidxs])+round(0.35*RawData$TestNumber[weekendidxs])))
+    RawData$TestNumber[weekendidxs]-(round(0.35*RawData$TestNumber[weekendidxs])+
+                                       round(0.35*RawData$TestNumber[weekendidxs])))
+
+RawData[Date=="2021-08-19", c("CaseNumber", "DeathNumber", "TestNumber")] <-
+  round(RawData[Date=="2021-08-20", .(CaseNumber, DeathNumber, TestNumber)]/2)
+RawData[Date=="2021-08-20", c("CaseNumber", "DeathNumber", "TestNumber")] <-
+  RawData[Date=="2021-08-20", .(CaseNumber, DeathNumber, TestNumber)]-RawData[Date=="2021-08-19", .(CaseNumber, DeathNumber, TestNumber)]
 
 RawData$CaseNumber <- as.integer(RawData$CaseNumber)
 RawData$DeathNumber <- as.integer(RawData$DeathNumber)

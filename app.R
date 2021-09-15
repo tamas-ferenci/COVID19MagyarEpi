@@ -393,9 +393,12 @@ ui <- fluidPage(
                                    checkboxInput("reprRtCi", "Konfidenciaintervallum megjelenítése"),
                                    checkboxGroupInput("reprRtMethods", "Módszerek",
                                                       c("Cori", "Wallinga-Lipsitch Exp/Poi", "Wallinga-Teunis"),
-                                                      c("Cori", "Wallinga-Teunis"))),
+                                                      c("Cori", "Wallinga-Teunis")),
+                                   dateInput("reprRtStartDate", "A megjelenítés kezdő dátuma",
+                                             min(RawData$Date), min(RawData$Date),
+                                             max(RawData$Date)-1)),
                             column(3,
-                                   sliderInput("reprRtWindowlen", "Csúszóablak szélessége [nap]:", 1, nrow(RawData), 7, 1),
+                                   sliderInput("reprRtWindowlen", "Csúszóablak szélessége [nap]:", 1, 60, 7, 1),
                                    numericInput("reprRtSImu", "A serial interval várható értéke:", SImuDefault, 0.01, 20, 0.01),
                                    numericInput("reprRtSIsd", "A serial interval szórása:", SIsdDefault, 0.01, 20, 0.01),
                                    
@@ -491,7 +494,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.53"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.54"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -714,7 +717,8 @@ server <- function(input, output, session) {
     res$variable <- relevel(as.factor(res$variable), ref = "Többlethalálozás")
     ggplot(res, aes(x = date, y = value, ymin = lwr, ymax = upr, group = variable, fill = variable)) + geom_line(aes(color = variable)) +
       geom_ribbon(alpha = 0.1, show.legend = FALSE) + geom_hline(yintercept = 0) + #guides(fill = FALSE) +
-      labs(x = "Dátum", y = "Heti halálozás [fő/hét]", color = "") + scale_x_date(date_breaks = "month", date_labels = "%b") +
+      labs(x = "Dátum", y = "Heti halálozás [fő/hét]", color = "") +
+      scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
       theme(legend.position = "bottom", plot.caption = element_text(face = "bold", hjust = 0)) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH és JHU CSSE")
   })
@@ -760,7 +764,7 @@ server <- function(input, output, session) {
                     se = input$testpositivityCi, level = input$testpositivityConf/100, n = 500,
                     aes(y = stage(CaseNumber/TestNumber, y),
                         ymin = after_stat(ymin), ymax = after_stat(ymax)))} +
-      scale_x_date(date_breaks = "month", date_labels = "%b") +
+      scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
       scale_y_continuous(labels = function(x) x*100, trans = if(input$testpositivityLogy) "log10" else "identity") +
       {if(input$testpositivityLogy) annotation_logticks()} +
       labs(x = "Dátum", y = "Tesztpozitivitási arány [%]") +
@@ -851,8 +855,10 @@ server <- function(input, output, session) {
       labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
       {if(input$reprRtCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
-      {if(!input$reprRtCi) coord_cartesian(ylim = c(NA, max(res$R)))} +
-      scale_x_date(date_breaks = "month", date_labels = "%b") +
+      coord_cartesian(xlim = c(input$reprRtStartDate, NA),
+                      ylim = c(NA, if(input$reprRtCi) max(res[Date>=input$reprRtStartDate]$upr)
+                                                          else max(res[Date>=input$reprRtStartDate]$R))) +
+      scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
       theme(plot.caption = element_text(face = "bold", hjust = 0)) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
   })
@@ -981,7 +987,8 @@ server <- function(input, output, session) {
       geom_line() + {if(input$cfrCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
       coord_cartesian(xlim = c(input$cfrStartDate, NA), ylim = c(0, max(res[Date>=input$cfrStartDate]$value*100))) +
       labs(x = "Dátum", y = "Halálozási arány [%]") +
-      scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) + scale_x_date(date_breaks = "month", date_labels = "%b")
+      scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
+      scale_x_date(date_breaks = "months", labels = scales::label_date_short())
   })
   
   output$cfrGraph <- renderPlot(dataInputcfrGraph())

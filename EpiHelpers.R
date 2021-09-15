@@ -76,12 +76,13 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
   pred$pred$col <- is.na(pred$pred[[what]])
   ggplot(pred$pred, aes_string(x = "Date", y = what)) +
     {if(any(pred$wind!=range(pred$pred$Date[!is.na(pred$pred[[what]])])))
-      annotate("rect", ymin = -Inf, ymax = +Inf, xmin = pred$wind[1],
+      annotate("rect", ymin = 0, ymax = +Inf, xmin = pred$wind[1],
                xmax = pred$wind[2], alpha = 0.1, fill = "orange")} +
     geom_point(size = 1) +
     labs(x = "Dátum", y = paste0("Napi ", if(what=="CaseNumber") "eset" else "halálozás-", "szám [fő/nap]")) +
-    {if(funfit) geom_line(aes(y = fit, color = col), show.legend = FALSE)} +
-    {if(ci&(funfit|forecast)) geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = col), alpha = 0.2, show.legend = FALSE)} +
+    {if(funfit) geom_line(data = ~ .x[.x$Date>pred$wind[1]], aes(y = fit, color = col), show.legend = FALSE)} +
+    {if(ci&(funfit|forecast)) geom_ribbon(data = ~ .x[.x$Date>pred$wind[1]],
+                                          aes(y = fit, ymin = lwr, ymax = upr, fill = col), alpha = 0.2, show.legend = FALSE)} +
     {if(loessfit) geom_smooth(method = "gam", formula = y ~ s(x, bs = "ad"), method.args = list(family = quasipoisson()),
                               se = ci, level = conf/100, n = 500)} +
     {if(delta) geom_vline(xintercept = deltadate)} +
