@@ -437,6 +437,9 @@ ui <- fluidPage(
                           hr(),
                           fluidRow(
                             column(3,
+                                   dateInput("cfrStartDate", "A számítás indításának dátuma",
+                                             min(RawData$Date), min(RawData$Date),
+                                             max(RawData$Date)-10),
                                    radioButtons("cfrType", "Megjelenítés", c("Grafikon", "Táblázat")),
                                    conditionalPanel("input.cfrType=='Grafikon'",
                                                     downloadButton("cfrGraphDlPDF", "Az ábra letöltése (PDF)"),
@@ -454,9 +457,9 @@ ui <- fluidPage(
                                                     checkboxGroupInput("cfrToplot", "Megjelenítendő halálozási arányok",
                                                                        c("Nyers", "Korrigált", "Valós idejű"),
                                                                        selected = c("Nyers", "Korrigált")),
-                                                    dateInput("cfrStartDate", "A megjelenítés kezdő dátuma",
-                                                              as.Date("2020-10-10"), min(RawData$Date),
-                                                              max(RawData$Date)-1))
+                                                    dateRangeInput("cfrDateRange", "A megjelenítés intervalluma",
+                                                                   as.Date("2020-10-10"), max(RawData$Date),
+                                                                   min(RawData$Date), max(RawData$Date)))
                             ),
                             column(5,
                                    numericInput("cfrDDTmu", "A diagnózis-halál idő várható értéke:", 13, 0.1, 20, 0.1),
@@ -494,7 +497,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.54"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.55"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -857,7 +860,7 @@ server <- function(input, output, session) {
       {if(input$reprRtCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
       coord_cartesian(xlim = c(input$reprRtStartDate, NA),
                       ylim = c(NA, if(input$reprRtCi) max(res[Date>=input$reprRtStartDate]$upr)
-                                                          else max(res[Date>=input$reprRtStartDate]$R))) +
+                               else max(res[Date>=input$reprRtStartDate]$R))) +
       scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
       theme(plot.caption = element_text(face = "bold", hjust = 0)) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
@@ -975,17 +978,21 @@ server <- function(input, output, session) {
     updateProgress <- function(detail = NULL) {
       progress$inc(amount = 1/(2*(nrow(RawData)-9)+2), detail = detail)
     }
-    cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, input$cfrConf, updateProgress = updateProgress)
+    cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, input$cfrStartDate, input$cfrConf,
+            updateProgress = updateProgress)
   })
   
   dataInputcfrGraph <- reactive({
     res <- dataInputCfr()
     pal <- scales::hue_pal()(3)
     scalval <- c("Nyers" = pal[1], "Korrigált" = pal[2], "Valós idejű" = pal[3])
-    ggplot(subset(res, `Típus`%in%input$cfrToplot),
+    ressubset <- res[Date>=input$cfrDateRange[1]&Date<=input$cfrDateRange[2]&`Típus`%in%input$cfrToplot]
+    ggplot(res[`Típus`%in%input$cfrToplot],
            aes(x = Date, y = value*100, ymin = lwr*100, ymax = upr*100, color = `Típus`, fill = `Típus`)) +
       geom_line() + {if(input$cfrCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
-      coord_cartesian(xlim = c(input$cfrStartDate, NA), ylim = c(0, max(res[Date>=input$cfrStartDate]$value*100))) +
+      coord_cartesian(xlim = input$cfrDateRange,
+                      ylim = if(input$cfrCi) extendrange(range(c(ressubset$lwr, ressubset$upr),
+                                                               na.rm = TRUE)*100) else extendrange(range(ressubset$value*100, na.rm = TRUE))) +
       labs(x = "Dátum", y = "Halálozási arány [%]") +
       scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
       scale_x_date(date_breaks = "months", labels = scales::label_date_short())

@@ -132,11 +132,11 @@ reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
                                                                                                       "Quantile.0.025(R)",
                                                                                                       "Quantile.0.975(R)")]),
                unlist(EpiEstim::wallinga_teunis(CaseNumber, method = "parametric_si",
-                                           config = list(method = "parametric_si", mean_si = SImu, std_si = SIsd,
-                                                         n_sim = 10, t_start = max(c(2, wind[1])),t_end = wind[2]))$R[
-                                                           c("Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")]))
-               # with(R0::smooth.Rt(R0::est.R0.TD(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
-               #                    wind[2]-wind[1]+1), c(R, unlist(conf.int))))
+                                                config = list(method = "parametric_si", mean_si = SImu, std_si = SIsd,
+                                                              n_sim = 10, t_start = max(c(2, wind[1])),t_end = wind[2]))$R[
+                                                                c("Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")]))
+  # with(R0::smooth.Rt(R0::est.R0.TD(CaseNumber, discrGT, begin = wind[1], end = wind[2]),
+  #                    wind[2]-wind[1]+1), c(R, unlist(conf.int))))
   # unlist(EpiEstim::wallinga_teunis(CaseNumber, "parametric_si",
   #                                  list(method = "parametric_si",mean_si = SImu, std_si = SIsd,
   #                                       t_start = max(c(2, wind[1])), t_end = wind[2], n_sim=100))$R[
@@ -182,7 +182,12 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
 binom.test2 <- function(x, n, conf.level) if(n==0) list(estimate = NA, conf.int = c(NA, NA)) else
   binom.test(x, n, conf.level = conf.level)
 
-cfrData <- function(rd, DDTmu, DDTsd, conf = 95, last = FALSE, updateProgress = NULL) {
+cfrData <- function(rd, DDTmu, DDTsd, startDate = NULL, conf = 95, last = FALSE, updateProgress = NULL) {
+  if (!is.null(startDate)) {
+    rd <- rd[Date>=startDate]
+    rd$CumDeathNumber <- cumsum(rd$DeathNumber)
+    rd$CumCaseNumber <- cumsum(rd$CaseNumber)
+  }
   conf <- conf/100
   discrdist <- distcrete::distcrete("lnorm", 1, meanlog = log(DDTmu)-log(DDTsd^2/DDTmu^2+1)/2,
                                     sdlog = sqrt(log(DDTsd^2/DDTmu^2+1)))
@@ -201,15 +206,14 @@ cfrData <- function(rd, DDTmu, DDTsd, conf = 95, last = FALSE, updateProgress = 
     bbmle::mle2(DeathNumber ~ dbinom(size = u2, prob = plogis(p)), data = rd[end], start = list(p = -2))
   })
   if(!is.null(updateProgress)) updateProgress(detail = "Összeállítás")
-  rbind(data.table(t(mapply(function(...) with(binom.test2(...),
-                                               c(value = as.numeric(estimate), lwr = conf.int[1], upr = conf.int[2])),
-                            rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf))),
-                   `Típus` = "Nyers", Date = rd$Date),
-        data.table(sapply(CfrCorrected, function(x) plogis(bbmle::coef(x))),
-                   t(sapply(CfrCorrected, function(x) plogis(bbmle::confint(x)))))[,.(value = V1, lwr = `2.5 %`, upr = `97.5 %`,
-                                                                                      `Típus` = "Korrigált", Date = rd$Date[-(1:9)])],
-        data.table(sapply(CfrRealtime, function(x) plogis(bbmle::coef(x))),
-                   t(sapply(CfrRealtime, function(x)
-                     plogis(tryCatch(bbmle::confint(x), error = function(e) c(NA, NA))))))[,.(value = V1, lwr = `2.5 %`, upr = `97.5 %`,
-                                                                                              `Típus` = "Valós idejű", Date = rd$Date[-(1:9)])])
+  rbind(setNames(data.table(t(mapply(function(...) with(binom.test2(...), c(estimate, conf.int)),
+                                     rd$CumDeathNumber, rd$CumCaseNumber, MoreArgs = list(conf.level = conf))),
+                            "Nyers", rd$Date), c("value", "lwr", "upr", "Típus", "Date")),
+        setNames(data.table(sapply(CfrCorrected, function(x) plogis(bbmle::coef(x))),
+                   t(sapply(CfrCorrected, function(x) plogis(bbmle::confint(x)))),
+                   "Korrigált", rd$Date[-(1:9)]), c("value", "lwr", "upr", "Típus", "Date")),
+        setNames(data.table(sapply(CfrRealtime, function(x) plogis(bbmle::coef(x))),
+                            t(sapply(CfrRealtime, function(x)
+                              plogis(tryCatch(bbmle::confint(x), error = function(e) c(NA, NA))))),
+                            "Valós idejű", rd$Date[-(1:9)]), c("value", "lwr", "upr", "Típus", "Date")))
 }
