@@ -3,9 +3,9 @@ library(ggplot2)
 library(data.table)
 
 RawData <- readRDS("RawData.rds")
-
-SImuDefault <- 4.7
-SIsdDefault <- 2.9
+DefaultReprRtData <- readRDS("DefaultReprRtData.rds")
+DefaultCfrData <- readRDS("DefaultCfrData.rds")
+DefaultReprData <- readRDS("DefaultReprData.rds")
 
 Sys.setlocale(locale = "hu_HU.utf8")
 options(shiny.useragg = TRUE)
@@ -503,7 +503,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.57"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.58"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -540,7 +540,7 @@ server <- function(input, output, session) {
   output$epicurveMortGraph <- renderPlot({
     epicurvePlot(dataInputEpicurveMort(), "DeathNumber", input$epicurveMortLogy, input$epicurveMortFunfit,
                  input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf,
-                 startdate = input$epicurveMostStartDate)
+                 startdate = input$epicurveMortStartDate)
   })
   
   output$epicurveIncText <- renderText(grText(dataInputEpicurveInc()$m, input$epicurveIncFform, startDate = min(RawData$Date)))
@@ -843,8 +843,8 @@ server <- function(input, output, session) {
                                   "halálozás-", "szám [fő/nap]")), readOnly = TRUE, height = 500)
   })
   
-  dataInputRepr <- reactive(reprData(RawData$CaseNumber, input$reprSImu, input$reprSIsd,
-                                     match(input$reprWindow, RawData$Date)))
+  dataInputRepr <- reactive(if(input$reprSImu==SImuDefault&input$reprSIsd==SIsdDefault) DefaultReprData else
+    reprData(RawData$CaseNumber, input$reprSImu, input$reprSIsd, match(input$reprWindow, RawData$Date)))
   
   output$reprGraph <- renderPlot({
     p1 <- ggplot(dataInputRepr(), aes(y = `Módszer`, x = R, xmin = lwr, xmax = upr)) + geom_point() + geom_errorbar() +
@@ -859,7 +859,8 @@ server <- function(input, output, session) {
     rhandsontable::rhandsontable(res[, c("Módszer", "R")], readOnly = TRUE, height = 500)
   })
   
-  dataInputReprRt <- reactive(reprRtData(RawData$CaseNumber, input$reprRtSImu, input$reprRtSIsd, input$reprRtWindowlen))
+  dataInputReprRt <- reactive(if(input$reprRtSImu==SImuDefault&input$reprRtSIsd==SIsdDefault&input$reprRtWindowlen==WindowLenDefault)
+    DefaultReprRtData else reprRtData(RawData$CaseNumber, input$reprRtSImu, input$reprRtSIsd, input$reprRtWindowlen))
   
   dataInputReprRtGraph <- reactive({
     pal <- scales::hue_pal()(3)
@@ -990,8 +991,9 @@ server <- function(input, output, session) {
     updateProgress <- function(detail = NULL) {
       progress$inc(amount = 1/(2*(nrow(RawData)-9)+2), detail = detail)
     }
-    cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, input$cfrStartDate, input$cfrConf,
-            updateProgress = updateProgress)
+    if(input$cfrDDTmu==cfrDDTmuDefault&input$cfrDDTsd==cfrDDTsdDefault&input$cfrStartDate==cfrStartDateDefault&input$cfrConf==cfrConfDefault)
+      DefaultCfrData else cfrData(RawData, input$cfrDDTmu, input$cfrDDTsd, input$cfrStartDate, input$cfrConf,
+                                  updateProgress = updateProgress)
   })
   
   dataInputcfrGraph <- reactive({
@@ -1061,7 +1063,7 @@ server <- function(input, output, session) {
   )
   
   dataInputCfrUnderdet <- reactive({
-    cfrData(RawData, input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd, last =TRUE)
+    cfrData(RawData, input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd, last = TRUE)
   })
   
   output$cfrUnderdetTab <- rhandsontable::renderRHandsontable({

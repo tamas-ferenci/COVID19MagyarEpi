@@ -1,3 +1,11 @@
+SImuDefault <- 4.7
+SIsdDefault <- 2.9
+WindowLenDefault <- 7
+cfrDDTmuDefault <- 13
+cfrDDTsdDefault <- 12.7
+cfrStartDateDefault <- as.Date("2020-03-04")
+cfrConfDefault <- 95
+
 LogisticDeriv <- function(Time){
   list(predictors = list(Asym = 1, xmid = 1, scal = 1),
        variables = list(substitute(Time)),
@@ -91,7 +99,7 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
     {if(logy) annotation_logticks()} +
     coord_cartesian(ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
                                        pred$pred$upr[is.na(pred$pred[[what]])]))),
-                    xlim = c(startdate, NA)) +
+                    xlim = as.Date(c(startdate, NA))) +
     scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
     theme(plot.caption = element_text(face = "bold", hjust = 0)) +
     labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
