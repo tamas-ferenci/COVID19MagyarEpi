@@ -116,7 +116,10 @@ ui <- fluidPage(
                                                                                    TRUE)),
                                                     conditionalPanel(
                                                       "(input.epicurveIncFunfit==1|input.epicurveIncLoessfit==1)&input.epicurveIncCi==1",
-                                                      numericInput("epicurveIncConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
+                                                      numericInput("epicurveIncConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)),
+                                                    dateInput("epicurveIncStartDate", "A megjelenítés kezdő dátuma",
+                                                              min(RawData$Date), min(RawData$Date),
+                                                              max(RawData$Date)-1))
                             ),
                             column(3,
                                    conditionalPanel("input.epicurveIncType=='Grafikon'&input.epicurveIncFunfit==1",
@@ -169,7 +172,10 @@ ui <- fluidPage(
                                                                                    TRUE)),
                                                     conditionalPanel(
                                                       "(input.epicurveMortFunfit==1|input.epicurveMortLoessfit==1)&input.epicurveMortCi==1",
-                                                      numericInput("epicurveMortConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)))
+                                                      numericInput("epicurveMortConf", "Megbízhatósági szint [%]:", 95, 0, 100, 1)),
+                                                    dateInput("epicurveMortStartDate", "A megjelenítés kezdő dátuma",
+                                                              min(RawData$Date), min(RawData$Date),
+                                                              max(RawData$Date)-1))
                             ),
                             column(3,
                                    conditionalPanel("input.epicurveMortType=='Grafikon'&input.epicurveMortFunfit==1",
@@ -497,7 +503,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.55"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.57"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -522,7 +528,8 @@ server <- function(input, output, session) {
   
   output$epicurveIncGraph <- renderPlot({
     epicurvePlot(dataInputEpicurveInc(), "CaseNumber", input$epicurveIncLogy, input$epicurveIncFunfit,
-                 input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf)
+                 input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf,
+                 startdate = input$epicurveIncStartDate)
   })
   
   dataInputEpicurveMort <- reactive({
@@ -532,7 +539,8 @@ server <- function(input, output, session) {
   
   output$epicurveMortGraph <- renderPlot({
     epicurvePlot(dataInputEpicurveMort(), "DeathNumber", input$epicurveMortLogy, input$epicurveMortFunfit,
-                 input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf)
+                 input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf,
+                 startdate = input$epicurveMostStartDate)
   })
   
   output$epicurveIncText <- renderText(grText(dataInputEpicurveInc()$m, input$epicurveIncFform, startDate = min(RawData$Date)))
@@ -554,14 +562,16 @@ server <- function(input, output, session) {
     filename = paste0("JarvanygorbeEsetszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
     content = function(file) ggsave169(file,
                                        epicurvePlot(dataInputEpicurveInc(), "CaseNumber", input$epicurveIncLogy, input$epicurveIncFunfit,
-                                                    input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf))
+                                                    input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf,
+                                                    startdate = input$epicurveIncStartDate))
   )
   
   output$epicurveIncGraphDlPNG <- downloadHandler(
     filename = paste0("JarvanygorbeEsetszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
     content = function(file) ggsave169(file,
                                        epicurvePlot(dataInputEpicurveInc(), "CaseNumber", input$epicurveIncLogy, input$epicurveIncFunfit,
-                                                    input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf))
+                                                    input$epicurveIncLoessfit, input$epicurveIncCi, input$epicurveIncConf,
+                                                    startdate = input$epicurveIncStartDate))
   )
   
   output$epicurveIncTabDlCSV <- downloadHandler(
@@ -573,14 +583,16 @@ server <- function(input, output, session) {
     filename = paste0("JarvanygorbeHalalozasszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".pdf"),
     content = function(file) ggsave169(file,
                                        epicurvePlot(dataInputEpicurveMort(), "DeathNumber", input$epicurveMortLogy, input$epicurveMortFunfit,
-                                                    input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf))
+                                                    input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf,
+                                                    startdate = input$epicurveMortStartDate))
   )
   
   output$epicurveMortGraphDlPNG <- downloadHandler(
     filename = paste0("JarvanygorbeHalalozasszam_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".png"),
     content = function(file) ggsave169(file,
                                        epicurvePlot(dataInputEpicurveMort(), "DeathNumber", input$epicurveMortLogy, input$epicurveMortFunfit,
-                                                    input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf))
+                                                    input$epicurveMortLoessfit, input$epicurveMortCi, input$epicurveMortConf,
+                                                    startdate = input$epicurveMortStartDate))
   )
   
   output$epicurveMortTabDlCSV <- downloadHandler(
@@ -1049,12 +1061,12 @@ server <- function(input, output, session) {
   )
   
   dataInputCfrUnderdet <- reactive({
-    cfrData(RawData, input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd, 95, TRUE)
+    cfrData(RawData, input$cfrUnderdetDDTmu, input$cfrUnderdetDDTsd, last =TRUE)
   })
   
   output$cfrUnderdetTab <- rhandsontable::renderRHandsontable({
     res <- dataInputCfrUnderdet()
-    rhandsontable::rhandsontable(RawData[,.(Date, CumCaseNumber, CumCaseNumber*res/input$cfrUnderdetBench*100)],
+    rhandsontable::rhandsontable(RawData[, .(Date, CumCaseNumber, CumCaseNumber*res/input$cfrUnderdetBench*100)],
                                  colHeaders = c("Dátum", "Jelentett kumulált esetszám [fő]", "Korrigált kumulált esetszám [fő]"),
                                  readOnly = TRUE, height = 500)
   })
@@ -1062,8 +1074,8 @@ server <- function(input, output, session) {
   output$cfrUnderdetText <- renderText({
     res <- dataInputCfrUnderdet()
     paste0("Az utolsó korrigált halálozás a hospitalizáció-halál idő megadott paramétereivel ",
-           round(res*100,1), "%. Ez a megadott ", input$cfrUnderdetBench, "%-os benchmark halálozási arányt figyelembe véve ",
-           round(res/input$cfrUnderdetBench*100,1), "-szoros valódi esetszámot feltételez a jelentetthez képest.")
+           round(res*100, 1), "%. Ez a megadott ", input$cfrUnderdetBench, "%-os benchmark halálozási arányt figyelembe véve ",
+           round(res/input$cfrUnderdetBench*100, 1), "-szoros valódi esetszámot feltételez a jelentetthez képest.")
   })
   
   output$cfrSensGraph <- renderPlot({

@@ -72,7 +72,8 @@ r2R0gamma <- function(r, si_mean, si_sd) {
 }
 
 epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE,
-                         loessfit = TRUE, ci = TRUE, conf = 95, delta = FALSE, deltadate = NA, forecast = FALSE) {
+                         loessfit = TRUE, ci = TRUE, conf = 95, delta = FALSE, deltadate = NA,
+                         forecast = FALSE, startdate = NA) {
   pred$pred$col <- is.na(pred$pred[[what]])
   ggplot(pred$pred, aes_string(x = "Date", y = what)) +
     {if(any(pred$wind!=range(pred$pred$Date[!is.na(pred$pred[[what]])])))
@@ -89,7 +90,8 @@ epicurvePlot <- function(pred, what = "CaseNumber", logy = FALSE, funfit = FALSE
     {if(logy) scale_y_continuous(trans = "log10")} +
     {if(logy) annotation_logticks()} +
     coord_cartesian(ylim = c(NA, max(c(pred$pred[[what]][!is.na(pred$pred[[what]])],
-                                       pred$pred$upr[is.na(pred$pred[[what]])])))) +
+                                       pred$pred$upr[is.na(pred$pred[[what]])]))),
+                    xlim = c(startdate, NA)) +
     scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
     theme(plot.caption = element_text(face = "bold", hjust = 0)) +
     labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
@@ -149,7 +151,7 @@ reprData <- function(CaseNumber, SImu, SIsd, wind = NA) {
   res
 }
 
-reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
+reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L, offset = 0L) {
   discrGT <- R0::generation.time("gamma", c(SImu, SIsd))
   res <- rbind(data.table(EpiEstim::estimate_R(CaseNumber, "parametric_si",
                                                config = EpiEstim::make_config(method = "parametric_si", mean_si = SImu,
@@ -175,6 +177,7 @@ reprRtData <- function(CaseNumber, SImu, SIsd, windowlen = 7L) {
                # with(R0::est.R0.SB(CaseNumber, discrGT, begin = 3L, end = length(CaseNumber)),
                #      cbind(R, conf.int, NumDate = as.numeric(rownames(conf.int)), `Módszer` = "Bettencourt-Ribeiro")),
                use.names = FALSE)
+  res$NumDate <- res$NumDate + offset
   colnames(res)[1:3] <- c("R", "lwr", "upr")
   res
 }
