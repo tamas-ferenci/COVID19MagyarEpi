@@ -382,7 +382,7 @@ ui <- fluidPage(
              fluidPage(
                tabsetPanel(
                  tabPanel("Valós idejű",
-                          conditionalPanel("input.reprRtType=='Grafikon'", plotOutput("reprRtGraph")),
+                          conditionalPanel("input.reprRtType=='Grafikon'", plotly::plotlyOutput("reprRtGraph")),
                           conditionalPanel("input.reprRtType=='Táblázat'", rhandsontable::rHandsontableOutput("reprRtTab")),
                           hr(),
                           fluidRow(
@@ -503,7 +503,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.58"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.59"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -866,20 +866,25 @@ server <- function(input, output, session) {
     pal <- scales::hue_pal()(3)
     scalval <- c("Cori" = pal[1], "Wallinga-Lipsitch Exp/Poi" = pal[2], "Wallinga-Teunis" = pal[3])
     res <- merge(dataInputReprRt(), RawData)[`Módszer`%in%input$reprRtMethods]
-    ggplot(res, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer`, fill = `Módszer`)) + geom_line() +
-      geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +
-      labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
-      scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
-      {if(input$reprRtCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
-      coord_cartesian(xlim = c(input$reprRtStartDate, NA),
-                      ylim = c(NA, if(input$reprRtCi) max(res[Date>=input$reprRtStartDate]$upr)
-                               else max(res[Date>=input$reprRtStartDate]$R))) +
-      scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
-      theme(plot.caption = element_text(face = "bold", hjust = 0)) +
-      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE")
+    plotly::ggplotly(
+      ggplot(res, aes(x = Date, y = R, ymin = lwr, ymax = upr, color = `Módszer`, fill = `Módszer`,
+                      text = paste0(Date, " dátumon az R értéke ", round(R, 2), " (95% CI: ",
+                                    round(lwr, 2), " - ", round(upr, 2), "), ", `Módszer`, " módszerrel"),
+                      group = `Módszer`)) +
+        geom_line() + geom_hline(yintercept = 1, color = "red") + expand_limits(y = 1) +
+        labs(y = "Reprodukciós szám", x = "Dátum", color = "", fill = "") + theme(legend.position = "bottom") +
+        scale_color_manual(values = scalval) + scale_fill_manual(values = scalval) +
+        {if(input$reprRtCi) geom_ribbon(alpha = 0.2, linetype = 0)} +
+        coord_cartesian(xlim = c(input$reprRtStartDate, NA),
+                        ylim = c(NA, if(input$reprRtCi) max(res[Date>=input$reprRtStartDate]$upr)
+                                 else max(res[Date>=input$reprRtStartDate]$R))) +
+        scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
+        theme(plot.caption = element_text(face = "bold", hjust = 0)) +
+        labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: JHU CSSE"),
+      tooltip = "text")
   })
   
-  output$reprRtGraph <- renderPlot(dataInputReprRtGraph())
+  output$reprRtGraph <- plotly::renderPlotly(dataInputReprRtGraph())
   
   dataInputReprRtTab <- reactive({
     res <- merge(dataInputReprRt(), RawData)[`Módszer`%in%input$reprRtMethods]

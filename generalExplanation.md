@@ -36,6 +36,8 @@ Bár a konkrét cél a koronavírus-járványra adott válasz támogatása, val�
 - Ferenci Tamás. [Többlethalálozási adatok európai összevetésben](https://github.com/tamas-ferenci/ExcessMortEUR). (2021). Online cikk.
 - Ferenci Tamás. [A magyarországi regisztrált koronavírusos halottak adatainak elemzése](https://github.com/tamas-ferenci/C19MortalityLineListingHUN). (2021). Online cikk.
 - Ferenci Tamás. [Different approaches to quantify years of life lost from COVID-19](https://link.springer.com/article/10.1007/s10654-021-00774-0). Eur J Epidemiol. 2021 Jun 10;1-9. DOI: 10.1007/s10654-021-00774-0.
+- Ferenci Tamás. [Bizalmunk az oltásban: bűnök és hibák](http://www.medstat.hu/FerenciTamas_BizalmunkAzOltasbanBunokEsHibak.pdf). 168 ÓRA 33:44 pp. 36-37., 2 p. (2021).
+- Ferenci Tamás. [Gondolatok a járványügyi adatok közléséről](https://github.com/tamas-ferenci/GondolatokAJarvanyugyiAdatokKozleserol). (2021). Online cikk.
 
 ## Adatok forrása
 

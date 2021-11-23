@@ -1,7 +1,7 @@
 library(data.table)
 Sys.setlocale(locale = "hu_HU.utf8")
 print(Sys.time())
-source("EpiHelpers.R", encoding = "UTF-8")
+source("/srv/shiny-server/COVID19MagyarEpi/EpiHelpers.R", encoding = "UTF-8")
 
 # RawData <- data.table(Date=seq.Date(as.Date("2020-03-04"),as.Date("2020-07-24"),by="days"),
 #                       CaseNumber=c(3,0,2,2,2,3,1,3,3,6,7,7,11,8,15,12,17,28,35,21,38,37,39,42,66,38,45,34,60,38,55,55,11,73,78,
@@ -146,12 +146,9 @@ RawData$AGEf <- factor(RawData$AGE, levels = c(0, seq(35, 85, 5)),
                                   "65-69", "70-74", "75-79", "80-84", "85-"))
 saveRDS(RawData, "/srv/shiny-server/COVID19MagyarEpi/ExcessMort.rds")
 
-
-
 # cfg <- covidestim::covidestim(ndays = nrow(RawData)) +
 #   covidestim::input_cases(RawData[,.(date = Date, observation = CaseNumber)]) +
 #   covidestim::input_deaths(RawData[,.(date = Date, observation = DeathNumber)]) +
 #   covidestim::input_fracpos(RawData[,.(date = Date, observation = fracpos)])
 # result <- covidestim::run(cfg)
 # saveRDS(result, file = "/srv/shiny-server/COVID19MagyarEpi/CovidestimResult.rds")
-
