@@ -503,7 +503,7 @@ ui <- fluidPage(
              downloadButton("report", "Jelentés letöltése (PDF)")
     ), widths = c(2, 8)
   ), hr(),
-  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.59"),
+  h4("Írta: Ferenci Tamás (Óbudai Egyetem, Élettani Szabályozások Kutatóközpont), v0.60"),
   
   tags$script(HTML("var sc_project=11601191; 
                       var sc_invisible=1; 
@@ -602,16 +602,16 @@ server <- function(input, output, session) {
   
   dataInputexcessmortGraph <- reactive({
     stratlist <- c("date", switch(input$excessmortStratify,
-                                  "Nem" = "SEX", "Életkor" = "AGEf",
-                                  "Nem és életkor" = c("AGEf", "SEX")))
-    ggplot(ExcessMort[,.(outcome = sum(outcome), population = sum(population), isoyear = isoyear,
-                         isoweek = isoweek), stratlist],
-           aes(x = isoweek, y = outcome/population*1e5, group = isoyear,
-               color = cut(isoyear, c(0, 2019:2021), labels = c("2015-2019", "2020", "2021")), alpha = isoyear>=2020)) + geom_line() +
-      scale_alpha_manual(values = c(0.3, 1)) + guides(alpha = FALSE) +
-      {if(input$excessmortStratify=="Nem") facet_wrap(vars(SEX))} +
-      {if(input$excessmortStratify=="Életkor") facet_wrap(vars(AGEf), scales = "free")} +
-      {if(input$excessmortStratify=="Nem és életkor") facet_grid(AGEf ~ SEX, scales = "free")} +
+                                  "Nem" = "sex", "Életkor" = "age",
+                                  "Nem és életkor" = c("age", "sex")))
+    ggplot(ExcessMort[,.(outcome = sum(outcome), population = sum(population), year = year,
+                         week = week), stratlist],
+           aes(x = week, y = outcome/population*1e5, group = year,
+               color = cut(year, c(0, 2019:2022), labels = c("2015-2019", 2020:max(ExcessMort$year))), alpha = year>=2020)) + geom_line() +
+      scale_alpha_manual(values = c(0.3, 1)) + guides(alpha = "none") +
+      {if(input$excessmortStratify=="Nem") facet_wrap(vars(sex))} +
+      {if(input$excessmortStratify=="Életkor") facet_wrap(vars(age), scales = "free")} +
+      {if(input$excessmortStratify=="Nem és életkor") facet_grid(age ~ sex, scales = "free")} +
       labs(x = "Hét sorszáma", y = "Mortalitás [/100 ezer fő/hét]") +
       theme(plot.caption = element_text(face = "bold", hjust = 0), legend.position = "bottom", legend.title=element_blank()) +
       labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH")
@@ -620,10 +620,10 @@ server <- function(input, output, session) {
   output$excessmortGraph <- renderPlot(dataInputexcessmortGraph())
   
   output$excessmortTab <- rhandsontable::renderRHandsontable({
-    rhandsontable::rhandsontable(ExcessMort[,.(`Év` = isoyear, `Hét sorszáma` = isoweek,
-                                               `Nem` = SEX, `Korcsoport` = AGE, `Halálozások száma [fő]` = outcome,
+    rhandsontable::rhandsontable(ExcessMort[,.(`Év` = year, `Hét sorszáma` = week,
+                                               `Nem` = sex, `Korcsoport` = age, `Halálozások száma [fő]` = outcome,
                                                `Háttérpopuláció [fő]` = population,
-                                               `Incidencia [fő/100e fő]` = incidence)],
+                                               `Incidencia [fő/100e fő]` = outcome/population*1e5)],
                                  readOnly = TRUE, height = 500, renderAllRows = TRUE)
   })
   
@@ -639,16 +639,16 @@ server <- function(input, output, session) {
   
   output$excessmortTabDlCSV <- downloadHandler(
     filename = paste0("Tobblethalalozas_", format(Sys.time(), "%Y_%m_%d__%H_%M"), ".csv"),
-    content = function(file) fwritecsv(ExcessMort[,.(`Év` = isoyear, `Hét sorszáma` = isoweek,
-                                                     `Nem` = SEX, `Korcsoport` = AGE, `Halálozások száma [fő]` = outcome,
+    content = function(file) fwritecsv(ExcessMort[,.(`Év` = year, `Hét sorszáma` = week,
+                                                     `Nem` = sex, `Korcsoport` = age, `Halálozások száma [fő]` = outcome,
                                                      `Háttérpopuláció [fő]` = population,
-                                                     `Incidencia [fő/100e fő]` = incidence)], file)
+                                                     `Incidencia [fő/100e fő]` = outcome/population*1e5)], file)
   )
   
   dataInputExcessmortModel <- reactive({
     stratlist <- c("date", switch(input$excessmortModelStratify,
-                                  "Nem" = "SEX", "Életkor" = "AGEf",
-                                  "Nem és életkor" = c("AGEf", "SEX")))
+                                  "Nem" = "sex", "Életkor" = "age",
+                                  "Nem és életkor" = c("age", "sex")))
     ExcessMort[,.(outcome = sum(outcome), population = sum(population)), stratlist][
       ,with(excessmort::excess_model(.SD, min(ExcessMort$date), max(ExcessMort$date),
                                      exclude = exclude_dates),
@@ -665,11 +665,11 @@ server <- function(input, output, session) {
       geom_ribbon(aes(ymin = increase - z * se, ymax = increase + z * se), alpha = 0.5) +
       geom_hline(yintercept = 0) + 
       labs(x = "Dátum", y = "Százalékos eltérés a várt értéktől") +
-      {if(input$excessmortModelStratify=="Nem") facet_wrap(vars(SEX))} +
-      {if(input$excessmortModelStratify=="Életkor") facet_wrap(vars(AGEf), scales = "free")} +
-      {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(AGEf ~ SEX, scales = "free")} +
+      {if(input$excessmortModelStratify=="Nem") facet_wrap(vars(sex))} +
+      {if(input$excessmortModelStratify=="Életkor") facet_wrap(vars(age), scales = "free")} +
+      {if(input$excessmortModelStratify=="Nem és életkor") facet_grid(age ~ sex, scales = "free")} +
       theme(plot.caption = element_text(face = "bold", hjust = 0)) +
-      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH")
+      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: Eurostat")
   })
   
   output$excessmortModelGraph <- renderPlot(dataInputexcessmortModelGraph())
@@ -688,8 +688,8 @@ server <- function(input, output, session) {
     temp <- copy(dataInputExcessmortModel())
     temp$observed <- as.integer(temp$observed)
     setnames(temp, c(switch(input$excessmortModelStratify,
-                            "Nem" = c("SEX" = "Nem"), "Életkor" = c("AGEf" = "Korcsoport"),
-                            "Nem és életkor" = c("AGEf" = "Korcsoport", "SEX" = "Nem")),
+                            "Nem" = c("sex" = "Nem"), "Életkor" = c("age" = "Korcsoport"),
+                            "Nem és életkor" = c("age" = "Korcsoport", "sex" = "Nem")),
                      "date" = "Kezdődátum", "observed" = "Halálozás [fő/hét]", "expected" = "Várt halálozás [fő/hét]",
                      "y" = "Többlethalálozás [%]", "increase" = "Modellezett többlethalálozás [%]",
                      "se" = "Standard hiba"))
@@ -707,35 +707,35 @@ server <- function(input, output, session) {
   dataInputexcessandobsmort <- reactive({
     z <- qnorm(1 - (1-input$excessandobsmortConf/100)/2)
     res <- merge(
-      RawData[,.(isoyear = lubridate::isoyear(Date), isoweek = lubridate::isoweek(Date), DeathNumber)][
-        ,.(DeathNumber = as.numeric(sum(DeathNumber))), .(isoyear, isoweek)],
-      with(excessmort::excess_model(ExcessMort[, .(outcome = sum(outcome), population = sum(population)), .(isoyear, isoweek, date)],
+      RawData[,.(year = lubridate::isoyear(Date), week = lubridate::isoweek(Date), DeathNumber)][
+        ,.(DeathNumber = as.numeric(sum(DeathNumber))), .(year, week)],
+      with(excessmort::excess_model(ExcessMort[, .(outcome = sum(outcome), population = sum(population)), .(year, week, date)],
                                     min(ExcessMort$date), max(ExcessMort$date),
                                     exclude = exclude_dates),
-           data.table(date = date, isoyear = lubridate::isoyear(date), isoweek = lubridate::isoweek(date),
+           data.table(date = date, year = lubridate::isoyear(date), week = lubridate::isoweek(date),
                       excess = expected*fitted,
                       se = sapply(1:length(date), function(i) {
                         mu <- matrix(expected[i], nr = 1)
                         x <- matrix(x[i,], nr = 1)
                         sqrt(mu %*% x %*% betacov %*% t(x) %*% t(mu))
-                      }))), by = c("isoyear", "isoweek"), all.x = TRUE)
-    res$date <- ISOweek::ISOweek2date(paste0(res$isoyear, "-W", sprintf("%02d", res$isoweek), "-1"))
+                      }))), by = c("year", "week"), all.x = TRUE)
+    res$date <- ISOweek::ISOweek2date(paste0(res$year, "-W", sprintf("%02d", res$week), "-1"))
     res$lwr <- res$excess - z*res$se
     res$upr <- res$excess + z*res$se
-    res$NoDays <- sapply(1:nrow(res), function(i) nrow(RawData[lubridate::isoweek(Date)==res$isoweek[i]&lubridate::year(Date)==res$isoyear[i]]))
+    res$NoDays <- sapply(1:nrow(res), function(i) nrow(RawData[lubridate::isoweek(Date)==res$week[i]&lubridate::year(Date)==res$year[i]]))
     res[NoDays==7]
   })
   
   dataInputexcessandobsmortGraph <- reactive({
-    res <- melt(dataInputexcessandobsmort(), id.vars = c("isoyear", "isoweek", "date"), measure.vars = list(value = c(5, 3), lwr = 7, upr = 8))
+    res <- melt(dataInputexcessandobsmort(), id.vars = c("year", "week", "date"), measure.vars = list(value = c(5, 3), lwr = 7, upr = 8))
     res$variable <- ifelse(res$variable==1, "Többlethalálozás", "Regisztrált koronavírus-halálozás")
     res$variable <- relevel(as.factor(res$variable), ref = "Többlethalálozás")
     ggplot(res, aes(x = date, y = value, ymin = lwr, ymax = upr, group = variable, fill = variable)) + geom_line(aes(color = variable)) +
-      geom_ribbon(alpha = 0.1, show.legend = FALSE) + geom_hline(yintercept = 0) + #guides(fill = FALSE) +
+      geom_ribbon(alpha = 0.1, show.legend = FALSE) + geom_hline(yintercept = 0) + #guides(fill = "none") +
       labs(x = "Dátum", y = "Heti halálozás [fő/hét]", color = "") +
       scale_x_date(date_breaks = "months", labels = scales::label_date_short()) +
       theme(legend.position = "bottom", plot.caption = element_text(face = "bold", hjust = 0)) +
-      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: KSH és JHU CSSE")
+      labs(caption = "Ferenci Tamás, https://research.physcon.uni-obuda.hu/\nAdatok forrása: Eurostat és JHU CSSE")
   })
   
   output$excessandobsmortGraph <- renderPlot(dataInputexcessandobsmortGraph())
@@ -752,11 +752,11 @@ server <- function(input, output, session) {
   
   dataInputexcessandobsmortNamed <- reactive({
     temp <- copy(dataInputexcessandobsmort())
-    temp$isoyear <- as.integer(temp$isoyear)
-    temp$isoweek <- as.integer(temp$isoweek)
+    temp$year <- as.integer(temp$year)
+    temp$week <- as.integer(temp$week)
     temp$DeathNumber <- as.integer(temp$DeathNumber)
     temp$ci <- ifelse(!is.na(temp$lwr), paste0(round(temp$lwr, 1), " - ", round(temp$upr, 1)), "")
-    temp <- temp[ , .(isoyear, isoweek, date, DeathNumber, excess, ci)]
+    temp <- temp[ , .(year, week, date, DeathNumber, excess, ci)]
     setnames(temp, c("Év", "Hét sorszáma", "Kezdődátum", "Regisztrált halálozások száma [fő/hét]",
                      "Többlethalálozás [fő/hét]", paste0(input$excessandobsmortConf, "% CI")))
     temp
@@ -915,79 +915,79 @@ server <- function(input, output, session) {
   
   values <- reactiveValues(Rs = data.table(Date = as.Date(c("2020-03-04", "2020-03-13")), R = c(2.7, 1.2)))
   
-  output$projcompInput <- rhandsontable::renderRHandsontable({
-    rhandsontable::hot_cell(rhandsontable::hot_validate_numeric(
-      rhandsontable::rhandsontable(values$Rs, colHeaders = c("Dátum", "R")), 2, min = 0.001), 1, 1, readOnly = TRUE)
-  })
-  
-  dataInputProjcomp <- reactive({
-    if(!is.null(input$projcompInput)) {
-      withProgress(message = "Szimulálás", value = 0, max = 12, {
-        incProgress(1, detail = "Modell összeállítása")
-        measSIR <- pomp::pomp(as.data.frame(RawData),
-                              times = "NumDate", t0 = 0,
-                              rprocess = pomp::euler(seir_step, delta.t = 1/7),
-                              rinit = seir_init,
-                              rmeasure = rmeas,
-                              dmeasure = dmeas,
-                              accumvars = "H",
-                              partrans = pomp::parameter_trans(logit=c("rho")),
-                              statenames = c("S", "E1", "E2", "I1", "I2", "I3", "R", "H"),
-                              paramnames = c("N", "rho"),
-                              covar = pomp::covariate_table(
-                                Beta = tidyr::fill(merge(data.table(Date = seq.Date(as.Date("2020-03-04"),
-                                                                                    as.Date("2020-03-04")+200, by = "days")),
-                                                         rhandsontable::hot_to_r(input$projcompInput), all.x = TRUE),
-                                                   "R")$R/input$projcompInfect,
-                                alpha = rep(1/input$projcompIncub, 201), gamma = rep(1/input$projcompInfect, 201), times=0:200
-                              ))
-        sims <- rbindlist(lapply(1:10, function(i) {
-          incProgress(1, detail = paste("Szimuláció futtatása ", i*10, "%"))
-          data.table(pomp::simulate(measSIR, params = c(N = 9772756, rho = 1), nsim = 50,
-                                    format = "data.frame", times = 0:200))[,.id:=as.numeric(.id)+(i-1)*50]
-        }))
-        
-        incProgress(1, detail = "Eredmények összeállítása")
-        sims$Date <- min(RawData$Date) + sims$NumDate
-        rbind(RawData, sims, sims[, .(.id = 0, med = median(CaseNumber), lwr = quantile(CaseNumber, 0.025),
-                                      upr = quantile(CaseNumber, 0.975)), .(Date)], fill = TRUE)
-      })
-    } else NULL
-  })
-  
-  output$projcompGraph <- renderPlot({
-    sims <- dataInputProjcomp()
-    if(!is.null(sims)) {
-      ggplot(sims, aes(x = Date,y = CaseNumber, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
-        scale_y_continuous(labels = function(x) format(x, big.mark = " ", scientific = FALSE)) +
-        geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
-        geom_ribbon(data = subset(sims, .id==0), aes(y = med, ymin = lwr, ymax = upr), alpha = 0.2) +
-        geom_line(data = subset(sims, .id==0), aes(y = med), size = 1.5) +
-        geom_point(data = subset(sims, is.na(.id)), size = 3, color = "black")  +
-        labs(x = "Dátum", y = "Napi esetszám [fő/nap]") + guides(color = FALSE, fill = FALSE) +
-        coord_trans(y = if(input$projcompLogy) scales::pseudo_log_trans() else scales::identity_trans(),
-                    xlim = c.Date(NA, input$projcompEnd),
-                    ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber, na.rm = TRUE))) +
-        geom_vline(xintercept = as.numeric(rhandsontable::hot_to_r(input$projcompInput)$Date))
-    }
-  })
-  
-  output$projcompTab <- rhandsontable::renderRHandsontable({
-    sims <- dataInputProjcomp()[.id=="CI",c("Date", "med", "lwr", "upr")]
-    sims$Pred <- paste0(sims$med, " (", sims$lwr, "-", sims$upr, ")")
-    rhandsontable::rhandsontable(sims[, c("Date", "Pred")],
-                                 colHeaders = c("Dátum", "Becsült napi esetszám (95%-os CI) [fő/nap]"), readOnly = TRUE)
-  })
-  
-  observeEvent(input$projcompAddrow, {
-    values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
-    values$Rs <- rbind(values$Rs, data.table(Date = max(values$Rs$Date)+7, R = 2))
-  })
-  
-  observeEvent(input$projcompDeleterow, {
-    values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
-    if(nrow(values$Rs)>1) values$Rs <- values$Rs[-nrow(values$Rs)]  
-  })
+  # output$projcompInput <- rhandsontable::renderRHandsontable({
+  #   rhandsontable::hot_cell(rhandsontable::hot_validate_numeric(
+  #     rhandsontable::rhandsontable(values$Rs, colHeaders = c("Dátum", "R")), 2, min = 0.001), 1, 1, readOnly = TRUE)
+  # })
+  # 
+  # dataInputProjcomp <- reactive({
+  #   if(!is.null(input$projcompInput)) {
+  #     withProgress(message = "Szimulálás", value = 0, max = 12, {
+  #       incProgress(1, detail = "Modell összeállítása")
+  #       measSIR <- pomp::pomp(as.data.frame(RawData),
+  #                             times = "NumDate", t0 = 0,
+  #                             rprocess = pomp::euler(seir_step, delta.t = 1/7),
+  #                             rinit = seir_init,
+  #                             rmeasure = rmeas,
+  #                             dmeasure = dmeas,
+  #                             accumvars = "H",
+  #                             partrans = pomp::parameter_trans(logit=c("rho")),
+  #                             statenames = c("S", "E1", "E2", "I1", "I2", "I3", "R", "H"),
+  #                             paramnames = c("N", "rho"),
+  #                             covar = pomp::covariate_table(
+  #                               Beta = tidyr::fill(merge(data.table(Date = seq.Date(as.Date("2020-03-04"),
+  #                                                                                   as.Date("2020-03-04")+200, by = "days")),
+  #                                                        rhandsontable::hot_to_r(input$projcompInput), all.x = TRUE),
+  #                                                  "R")$R/input$projcompInfect,
+  #                               alpha = rep(1/input$projcompIncub, 201), gamma = rep(1/input$projcompInfect, 201), times=0:200
+  #                             ))
+  #       sims <- rbindlist(lapply(1:10, function(i) {
+  #         incProgress(1, detail = paste("Szimuláció futtatása ", i*10, "%"))
+  #         data.table(pomp::simulate(measSIR, params = c(N = 9772756, rho = 1), nsim = 50,
+  #                                   format = "data.frame", times = 0:200))[,.id:=as.numeric(.id)+(i-1)*50]
+  #       }))
+  #       
+  #       incProgress(1, detail = "Eredmények összeállítása")
+  #       sims$Date <- min(RawData$Date) + sims$NumDate
+  #       rbind(RawData, sims, sims[, .(.id = 0, med = median(CaseNumber), lwr = quantile(CaseNumber, 0.025),
+  #                                     upr = quantile(CaseNumber, 0.975)), .(Date)], fill = TRUE)
+  #     })
+  #   } else NULL
+  # })
+  # 
+  # output$projcompGraph <- renderPlot({
+  #   sims <- dataInputProjcomp()
+  #   if(!is.null(sims)) {
+  #     ggplot(sims, aes(x = Date,y = CaseNumber, group=.id, color = "#8c8cd9", fill = "#8c8cd9")) +
+  #       scale_y_continuous(labels = function(x) format(x, big.mark = " ", scientific = FALSE)) +
+  #       geom_line(data = subset(sims, .id<=100), alpha = 0.2) + theme_bw() +
+  #       geom_ribbon(data = subset(sims, .id==0), aes(y = med, ymin = lwr, ymax = upr), alpha = 0.2) +
+  #       geom_line(data = subset(sims, .id==0), aes(y = med), size = 1.5) +
+  #       geom_point(data = subset(sims, is.na(.id)), size = 3, color = "black")  +
+  #       labs(x = "Dátum", y = "Napi esetszám [fő/nap]") + guides(color = "none", fill = "none") +
+  #       coord_trans(y = if(input$projcompLogy) scales::pseudo_log_trans() else scales::identity_trans(),
+  #                   xlim = c.Date(NA, input$projcompEnd),
+  #                   ylim = c(NA, max(sims[Date<=input$projcompEnd]$CaseNumber, na.rm = TRUE))) +
+  #       geom_vline(xintercept = as.numeric(rhandsontable::hot_to_r(input$projcompInput)$Date))
+  #   }
+  # })
+  # 
+  # output$projcompTab <- rhandsontable::renderRHandsontable({
+  #   sims <- dataInputProjcomp()[.id=="CI",c("Date", "med", "lwr", "upr")]
+  #   sims$Pred <- paste0(sims$med, " (", sims$lwr, "-", sims$upr, ")")
+  #   rhandsontable::rhandsontable(sims[, c("Date", "Pred")],
+  #                                colHeaders = c("Dátum", "Becsült napi esetszám (95%-os CI) [fő/nap]"), readOnly = TRUE)
+  # })
+  # 
+  # observeEvent(input$projcompAddrow, {
+  #   values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
+  #   values$Rs <- rbind(values$Rs, data.table(Date = max(values$Rs$Date)+7, R = 2))
+  # })
+  # 
+  # observeEvent(input$projcompDeleterow, {
+  #   values$Rs <- rhandsontable::hot_to_r(input$projcompInput)
+  #   if(nrow(values$Rs)>1) values$Rs <- values$Rs[-nrow(values$Rs)]  
+  # })
   
   dataInputCfr <- reactive({
     progress <- shiny::Progress$new()

@@ -43,6 +43,23 @@ RawData <- merge(RawData, RawData2, sort = FALSE, all.x = TRUE)
 RawData$TestNumber[1:6] <- c(109, 109, 50, 43, 110, 110)
 RawData$TestNumber[257:258] <- mean(RawData$TestNumber[257:258])
 
+# RawData <- RawData[Date <= "2022-05-01"]
+
+RawData[CaseNumber==0&DeathNumber==0&is.na(TestNumber), `:=`(CaseNumber = NA, DeathNumber = NA)]
+
+RawData$rep <- with(rle(ifelse(is.na(RawData$CaseNumber), -1, 1:nrow(RawData))), rep(lengths, lengths))
+RawData[rep>1]$rep <- RawData[rep>1]$rep + 1
+RawData$replag <- c(NA, RawData$rep[-length(RawData$rep)])
+RawData[rep==1&replag>1]$rep <- RawData[rep==1&replag>1]$replag
+RawData <- tidyr::fill(RawData, 2:4, .direction = "up")
+RawData$CaseNumber <- RawData$CaseNumber/RawData$rep
+RawData$DeathNumber <- RawData$DeathNumber/RawData$rep
+RawData$TestNumber <- RawData$TestNumber/RawData$rep
+RawData$rep <- NULL
+RawData$replag <- NULL
+
+RawData <- RawData[!is.na(CaseNumber)&!is.na(DeathNumber)]
+
 # tmp <- tempfile(fileext = ".xlsx")
 # download.file(url = paste0("https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-",
 #                            "disbtribution-worldwide-", Sys.Date()-1, ".xlsx"), destfile = tmp, mode = "wb")
@@ -55,27 +72,27 @@ RawData$TestNumber[257:258] <- mean(RawData$TestNumber[257:258])
 # RawData <- merge(RawData, CaseData[Countries.and.territories=="Hungary", c("Date", "CaseNumber")], all.x = TRUE)
 # RawData[is.na(CaseNumber)]$CaseNumber <- 0
 
-weekendidxs <- which(RawData$Date>=as.Date("2021-06-11")&lubridate::wday(RawData$Date, week_start = 1)==7)
-RawData$CaseNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
-  c(round(0.4*RawData$CaseNumber[weekendidxs]),
-    round(0.35*RawData$CaseNumber[weekendidxs]),
-    RawData$CaseNumber[weekendidxs]-(round(0.4*RawData$CaseNumber[weekendidxs])+
-                                       round(0.35*RawData$CaseNumber[weekendidxs])))
-RawData$DeathNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
-  c(round(0.4*RawData$DeathNumber[weekendidxs]),
-    round(0.3*RawData$DeathNumber[weekendidxs]),
-    RawData$DeathNumber[weekendidxs]-(round(0.4*RawData$DeathNumber[weekendidxs])+
-                                        round(0.3*RawData$DeathNumber[weekendidxs])))
-RawData$TestNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
-  c(round(0.35*RawData$TestNumber[weekendidxs]),
-    round(0.35*RawData$TestNumber[weekendidxs]),
-    RawData$TestNumber[weekendidxs]-(round(0.35*RawData$TestNumber[weekendidxs])+
-                                       round(0.35*RawData$TestNumber[weekendidxs])))
-
-RawData[Date=="2021-08-19", c("CaseNumber", "DeathNumber", "TestNumber")] <-
-  round(RawData[Date=="2021-08-20", .(CaseNumber, DeathNumber, TestNumber)]/2)
-RawData[Date=="2021-08-20", c("CaseNumber", "DeathNumber", "TestNumber")] <-
-  RawData[Date=="2021-08-20", .(CaseNumber, DeathNumber, TestNumber)]-RawData[Date=="2021-08-19", .(CaseNumber, DeathNumber, TestNumber)]
+# weekendidxs <- which(RawData$Date>=as.Date("2021-06-11")&lubridate::wday(RawData$Date, week_start = 1)==7)
+# RawData$CaseNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
+#   c(round(0.4*RawData$CaseNumber[weekendidxs]),
+#     round(0.35*RawData$CaseNumber[weekendidxs]),
+#     RawData$CaseNumber[weekendidxs]-(round(0.4*RawData$CaseNumber[weekendidxs])+
+#                                        round(0.35*RawData$CaseNumber[weekendidxs])))
+# RawData$DeathNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
+#   c(round(0.4*RawData$DeathNumber[weekendidxs]),
+#     round(0.3*RawData$DeathNumber[weekendidxs]),
+#     RawData$DeathNumber[weekendidxs]-(round(0.4*RawData$DeathNumber[weekendidxs])+
+#                                         round(0.3*RawData$DeathNumber[weekendidxs])))
+# RawData$TestNumber[c(weekendidxs-2,weekendidxs-1, weekendidxs)] <-
+#   c(round(0.35*RawData$TestNumber[weekendidxs]),
+#     round(0.35*RawData$TestNumber[weekendidxs]),
+#     RawData$TestNumber[weekendidxs]-(round(0.35*RawData$TestNumber[weekendidxs])+
+#                                        round(0.35*RawData$TestNumber[weekendidxs])))
+# 
+# RawData[Date=="2021-08-19", c("CaseNumber", "DeathNumber", "TestNumber")] <-
+#   round(RawData[Date=="2021-08-20", .(CaseNumber, DeathNumber, TestNumber)]/2)
+# RawData[Date=="2021-08-20", c("CaseNumber", "DeathNumber", "TestNumber")] <-
+#   RawData[Date=="2021-08-20", .(CaseNumber, DeathNumber, TestNumber)]-RawData[Date=="2021-08-19", .(CaseNumber, DeathNumber, TestNumber)]
 
 RawData$CaseNumber <- as.integer(RawData$CaseNumber)
 RawData$DeathNumber <- as.integer(RawData$DeathNumber)
@@ -98,7 +115,7 @@ saveRDS(reprRtData(RawData$CaseNumber, SImuDefault, SIsdDefault, WindowLenDefaul
 saveRDS(cfrData(RawData, cfrDDTmuDefault, cfrDDTsdDefault, cfrStartDateDefault, cfrConfDefault),
         file = "/srv/shiny-server/COVID19MagyarEpi/DefaultCfrData.rds")
 
-cfrsensgrid <- expand.grid(DDTmu = seq(7, 21, 0.1), DDTsd = seq(9, 15, 0.1))
+cfrsensgrid <- expand.grid(DDTmu = seq(7, 21, 0.5), DDTsd = seq(9, 15, 0.5))
 cfrsensgrid$meanlog <- log(cfrsensgrid$DDTmu)-log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1)/2
 cfrsensgrid$sdlog <- sqrt(log(cfrsensgrid$DDTsd^2/cfrsensgrid$DDTmu^2+1))
 LastCumDeathNumber <- tail(RawData$CumDeathNumber,1)
@@ -111,39 +128,67 @@ cfrsensgrid$`Korrigált halálozási arány [%]` <- apply(cfrsensgrid, 1, functi
 })
 saveRDS(cfrsensgrid, "/srv/shiny-server/COVID19MagyarEpi/cfrsensgrid.rds")
 
-RawData <- fread("https://www.ksh.hu/stadat_files/nep/hu/nep0065.csv", dec = ",", skip = 3, encoding = "Latin-1")[,c(3, 5:17, 19:31)]
-names(RawData) <- c("date", paste0("Male_", c(0, seq(35, 90, 5))),
-                    paste0("Female_", c(0, seq(35, 90, 5))))
-RawData$date <- as.Date(RawData$date, format = "%Y. %B %d.")
-for(i in 2:ncol(RawData)) {
-  RawData[[i]][RawData[[i]]=="–"] <- 0
-  RawData[[i]] <- as.numeric(RawData[[i]])
-}
-RawData$Male_85 <- RawData$Male_85 + RawData$Male_90
-RawData$Female_85 <- RawData$Female_85 + RawData$Female_90
-RawData <- RawData[,!names(RawData)%in%c("Male_90", "Female_90"), with = FALSE]
-RawData <- melt(RawData, id.vars = "date", variable.factor = FALSE, value.name = "outcome")
-RawData$outcome <- as.integer(RawData$outcome)
-RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
-RawData$AGE <- as.integer(sapply(strsplit(RawData$variable, "_"), `[`, 2))
-PopPyramid <- readRDS("/srv/shiny-server/COVID19MagyarEpi/PopPyramid2020.rds")
-PopPyramid <- rbind(PopPyramid, cbind(YEAR = 2022, PopPyramid[YEAR==2021, .(SEX, AGE, POPULATION)]))
-PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION,
-                                       unique(RawData$date)),
-                                list(date = x, population = y)), .(AGE, SEX)]
-RawData <- merge(RawData, PopPyramid)
-RawData$isoweek <- as.integer(lubridate::isoweek(RawData$date))
-RawData$isoyear <- as.integer(lubridate::isoyear(RawData$date))
-RawData$incidence <- RawData$outcome/RawData$population*1e5
-RawData$SEXf <- as.factor(RawData$SEX)
-RawData$isoyearf <- as.factor(RawData$isoyear)
-RawData$datenum <- (as.numeric(RawData$date)-min(as.numeric(RawData$date)))/365.24
-RawData$AGEcenter <- RawData$AGE+2.5
-RawData$AGEcenter[RawData$AGEcenter==2.5] <- 17.5
-RawData$SEX <- ifelse(RawData$SEX=="Male", "Férfi", "Nő")
-RawData$AGEf <- factor(RawData$AGE, levels = c(0, seq(35, 85, 5)),
-                       labels = c("0-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64",
-                                  "65-69", "70-74", "75-79", "80-84", "85-"))
+
+
+RawData <- as.data.table(eurostat::get_eurostat("demo_r_mwk_05", time_format = "raw"))
+RawData <- RawData[geo=="HU"&age!="TOTAL"&sex!="T"]
+RawData$age <- ifelse(RawData$age=="Y_GE90", "Y85-89", RawData$age)
+RawData <- RawData[, .(values = sum(values)) , .(age, sex, unit, geo, time)]
+RawData[age=="Y85-89"]$age <- "Y_GE85"
+RawData[ , values := round(values*sum(values)/sum(values[age!="UNK"])), .(time, sex)]
+RawData <- RawData[age!="UNK"]
+RawData <- RawData[!is.na(RawData$values)]
+RawData$year <- as.numeric(substring(RawData$time, 1, 4))
+RawData$week <- as.numeric(substring(RawData$time, 6, 7))
+RawData$date <- ISOweek::ISOweek2date(paste0(RawData$year, "-W", sprintf("%.2i", RawData$week), "-1"))
+PopData <- as.data.table(eurostat::get_eurostat("demo_pjangroup"))
+PopData <- PopData[geo=="HU"&!age%in%c("UNK", "Y_GE75", "Y_GE80", "TOTAL")&sex!="T"]
+PopData$numdate <- as.numeric(PopData$time-as.Date("1960-01-01"))
+RawData <- merge(RawData, PopData[, .(date = unique(RawData$date),
+                                      population = as.numeric(predict(mgcv::gam(values ~ s(numdate)),
+                                                                      data.frame(numdate = as.numeric(unique(RawData$date)-as.Date("1960-01-01")))))),
+                                  .(age)], by = c("age", "date"))
+names(RawData)[names(RawData)=="values"] <- "outcome"
+RawData$sex <- ifelse(RawData$sex=="F", "Nő", "Férfi")
+RawData$age <- substring(RawData$age, 2)
+RawData$age <- ifelse(RawData$age=="_GE85", ">85", ifelse(RawData$age=="_LT5", "<5", RawData$age))
+RawData$age <- factor(RawData$age, levels = c("<5", paste0(seq(5, 80, 5), "-", seq(9, 84, 5)), ">85"))
+
+# RawData <- fread("https://www.ksh.hu/stadat_files/nep/hu/nep0065.csv", dec = ",", skip = 3, encoding = "Latin-1")[,c(3, 5:17, 19:31)]
+# names(RawData) <- c("date", paste0("Male_", c(0, seq(35, 90, 5))),
+#                     paste0("Female_", c(0, seq(35, 90, 5))))
+# RawData$date <- as.Date(RawData$date, format = "%Y. %B %d.")
+# for(i in 2:ncol(RawData)) {
+#   RawData[[i]][RawData[[i]]=="–"] <- 0
+#   RawData[[i]] <- as.numeric(RawData[[i]])
+# }
+# RawData$Male_85 <- RawData$Male_85 + RawData$Male_90
+# RawData$Female_85 <- RawData$Female_85 + RawData$Female_90
+# RawData <- RawData[,!names(RawData)%in%c("Male_90", "Female_90"), with = FALSE]
+# RawData <- melt(RawData, id.vars = "date", variable.factor = FALSE, value.name = "outcome")
+# RawData$outcome <- as.integer(RawData$outcome)
+# RawData$SEX <- sapply(strsplit(RawData$variable, "_"), `[`, 1)
+# RawData$AGE <- as.integer(sapply(strsplit(RawData$variable, "_"), `[`, 2))
+# PopPyramid <- readRDS("/srv/shiny-server/COVID19MagyarEpi/PopPyramid2020.rds")
+# PopPyramid <- rbind(PopPyramid, cbind(YEAR = 2022, PopPyramid[YEAR==2021, .(SEX, AGE, POPULATION)]))
+# PopPyramid <- rbind(PopPyramid, cbind(YEAR = 2023, PopPyramid[YEAR==2021, .(SEX, AGE, POPULATION)]))
+# PopPyramid <- PopPyramid[, with(approx(as.Date(paste0(YEAR, "-01-01")), POPULATION,
+#                                        unique(RawData$date)),
+#                                 list(date = x, population = y)), .(AGE, SEX)]
+# RawData <- merge(RawData, PopPyramid)
+# RawData$isoweek <- as.integer(lubridate::isoweek(RawData$date))
+# RawData$isoyear <- as.integer(lubridate::isoyear(RawData$date))
+# RawData$incidence <- RawData$outcome/RawData$population*1e5
+# RawData$SEXf <- as.factor(RawData$SEX)
+# RawData$isoyearf <- as.factor(RawData$isoyear)
+# RawData$datenum <- (as.numeric(RawData$date)-min(as.numeric(RawData$date)))/365.24
+# RawData$AGEcenter <- RawData$AGE+2.5
+# RawData$AGEcenter[RawData$AGEcenter==2.5] <- 17.5
+# RawData$SEX <- ifelse(RawData$SEX=="Male", "Férfi", "Nő")
+# RawData$AGEf <- factor(RawData$AGE, levels = c(0, seq(35, 85, 5)),
+#                        labels = c("0-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64",
+#                                   "65-69", "70-74", "75-79", "80-84", "85-"))
+
 saveRDS(RawData, "/srv/shiny-server/COVID19MagyarEpi/ExcessMort.rds")
 
 # cfg <- covidestim::covidestim(ndays = nrow(RawData)) +
